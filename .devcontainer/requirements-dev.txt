@@ -1,0 +1,8 @@
+# Python dev tooling baked into every /opt/venvs/<version> venv (CPython >= 3.11).
+# Change a pin here -> rebuild the image -> log it in NOTES.md.
+maturin==1.16.0
+pytest==9.2.0
+pytest-benchmark==5.3.1
+hypothesis==6.170.15
+ruff==0.17.5
+py-spy==0.4.3

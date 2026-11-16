@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "commit": "uncommitted",
+    "free_threaded": false,
+    "image": "unknown",
+    "implementation": "cpython",
+    "machine": "x86_64",
+    "min_time": 0.2,
+    "python": "3.14.10",
+    "rounds": 5
+  },
+  "results": {
+    "anyof_oneof": {
+      "cerberus": 0.24841315600497182,
+      "ferberus": 0.25299589600763284
+    },
+    "custom_rules": {
+      "cerberus": 0.1259308945009252,
+      "ferberus": 0.1259499469961156
+    },
+    "deep_nesting": {
+      "cerberus": 0.09629220249917125,
+      "ferberus": 0.09584463849751046
+    },
+    "large_list_of_dicts": {
+      "cerberus": 0.07262965633708518,
+      "ferberus": 0.0718761263366711
+    },
+    "large_list_of_integers": {
+      "cerberus": 0.025306876443210058,
+      "ferberus": 0.025224667999686465
+    },
+    "normalization_heavy": {
+      "cerberus": 0.22013417500420474,
+      "ferberus": 0.22111574999871664
+    },
+    "one_huge_document": {
+      "cerberus": 0.9253386089985725,
+      "ferberus": 0.944197744000121
+    },
+    "regex_heavy": {
+      "cerberus": 0.13862149300257443,
+      "ferberus": 0.13854737950168783
+    },
+    "schema_validation_cold": {
+      "cerberus": 0.010256719666705024,
+      "ferberus": 0.010195055476201344
+    },
+    "small_flat_invalid": {
+      "cerberus": 0.3632463960093446,
+      "ferberus": 0.36312144401017576
+    },
+    "small_flat_invalid_errors": {
+      "cerberus": 0.42995941000117455,
+      "ferberus": 0.42931611600215547
+    },
+    "small_flat_no_normalize": {
+      "cerberus": 0.03666416416672291,
+      "ferberus": 0.036946299832682904
+    },
+    "small_flat_valid": {
+      "cerberus": 0.3080913279991364,
+      "ferberus": 0.3076405759929912
+    },
+    "validator_construction_small": {
+      "cerberus": 0.006587189657147973,
+      "ferberus": 0.006609998515076851
+    },
+    "validator_construction_warm": {
+      "cerberus": 0.011174481095319303,
+      "ferberus": 0.011132044856952104
+    }
+  }
+}

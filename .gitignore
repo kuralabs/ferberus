@@ -1,0 +1,12 @@
+/target/
+*.so
+*.pyd
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.benchmarks/
+/dist/
+/profiles/*.raw
+*.egg-info/

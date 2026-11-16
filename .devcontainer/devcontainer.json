@@ -1,0 +1,23 @@
+{
+  "name": "ferberus",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "remoteUser": "dev",
+  "updateRemoteUserUID": true,
+  "workspaceFolder": "/workspaces/ferberus",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/ferberus,type=bind",
+  "mounts": [
+    "source=ferberus-cargo-registry,target=/usr/local/cargo/registry,type=volume",
+    "source=ferberus-cargo-git,target=/usr/local/cargo/git,type=volume",
+    "source=ferberus-target,target=/var/cache/ferberus/target,type=volume",
+    "source=ferberus-uv-cache,target=/var/cache/ferberus/uv,type=volume"
+  ],
+  "capAdd": ["SYS_PTRACE", "PERFMON"],
+  "customizations": {
+    "vscode": {
+      "extensions": ["rust-lang.rust-analyzer", "charliermarsh.ruff", "ms-python.python"]
+    }
+  }
+}

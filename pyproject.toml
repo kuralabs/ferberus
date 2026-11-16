@@ -1,0 +1,63 @@
+[build-system]
+requires = ["maturin>=1.16,<2"]
+build-backend = "maturin"
+
+[project]
+name = "ferberus"
+description = "A drop-in, high-performance Rust reimplementation of the Cerberus validation library."
+readme = "README.md"
+license = "ISC"
+license-files = ["LICENSE", "LICENSE.cerberus"]
+requires-python = ">=3.9"
+authors = [{ name = "Carlos Jenkins" }]
+keywords = ["validation", "schema", "dictionaries", "documents", "normalization", "cerberus"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
+    "Programming Language :: Rust",
+]
+dynamic = ["version"]
+
+[tool.maturin]
+python-source = "python"
+module-name = "ferberus._core"
+profile = "release"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+# Modules derived from Cerberus are kept textually close to upstream.
+extend-exclude = [
+    "python/ferberus/errors.py",
+    "python/ferberus/platform.py",
+    "python/ferberus/schema.py",
+    "python/ferberus/utils.py",
+    "python/ferberus/validator.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# the shim mirrors cerberus/__init__.py, imports follow the aliasing
+"python/ferberus/_shim/cerberus/__init__.py" = ["E402", "F401", "I001"]
+# closures that are called right away; expressions evaluated for their effect
+"tests/**" = ["B007", "B018", "B023", "E402"]
+"benches/**" = ["B023"]
+"python/ferberus/__init__.py" = ["I001"]

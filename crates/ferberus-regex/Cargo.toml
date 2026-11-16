@@ -1,0 +1,21 @@
+[package]
+name = "ferberus-regex"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+description = "Translates a subset of Python's regular expression syntax for the regex crate, preserving re.match semantics on ASCII."
+license = "ISC"
+publish = false
+
+[dependencies]
+regex = { version = "1.13.1", default-features = false, features = ["std", "perf"] }
+
+[dev-dependencies]
+divan = "0.1.21"
+
+[[bench]]
+name = "regex"
+harness = false
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }

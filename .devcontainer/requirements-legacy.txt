@@ -1,0 +1,5 @@
+# Tooling for CPython 3.9 / 3.10 venvs, where current pytest/hypothesis no
+# longer install. Only what is needed to build ferberus and run the suites.
+maturin==1.16.0
+pytest==8.4.2
+hypothesis==6.141.1

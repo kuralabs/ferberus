@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Run a command inside the ferberus dev container (plain docker; mirrors
+# .devcontainer/devcontainer.json for hosts without the devcontainer CLI).
+#
+#   ./dev build            build the image
+#   ./dev up               start the long-lived container
+#   ./dev down             stop and remove it
+#   ./dev <cmd> [args...]  run a command in it (starts it if needed)
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IMAGE="${FERBERUS_IMAGE:-ferberus-dev}"
+NAME="${FERBERUS_CONTAINER:-ferberus-dev}"
+
+build() {
+    docker build -f "$ROOT/.devcontainer/Dockerfile" -t "$IMAGE" \
+        --build-arg USER_UID="$(id -u)" --build-arg USER_GID="$(id -g)" "$@" "$ROOT"
+}
+
+up() {
+    if [ -z "$(docker ps -q -f "name=^${NAME}$")" ]; then
+        docker rm -f "$NAME" >/dev/null 2>&1 || true
+        docker run -d --name "$NAME" --init \
+            --cap-add=SYS_PTRACE --cap-add=PERFMON \
+            -v "$ROOT:/workspaces/ferberus" \
+            -v ferberus-cargo-registry:/usr/local/cargo/registry \
+            -v ferberus-cargo-git:/usr/local/cargo/git \
+            -v ferberus-target:/var/cache/ferberus/target \
+            -v ferberus-uv-cache:/var/cache/ferberus/uv \
+            "$IMAGE" >/dev/null
+    fi
+}
+
+case "${1:-}" in
+    build) shift; build "$@" ;;
+    up) up ;;
+    down) docker rm -f "$NAME" >/dev/null ;;
+    digest) docker image inspect --format '{{.Id}}' "$IMAGE" ;;
+    "") echo "usage: ./dev build|up|down|digest|<command...>" >&2; exit 2 ;;
+    *) up; exec docker exec -w /workspaces/ferberus "$NAME" "$@" ;;
+esac

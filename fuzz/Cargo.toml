@@ -1,0 +1,21 @@
+[package]
+name = "ferberus-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ferberus-regex = { path = "../crates/ferberus-regex" }
+
+[[bin]]
+name = "regex_translate"
+path = "fuzz_targets/regex_translate.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]

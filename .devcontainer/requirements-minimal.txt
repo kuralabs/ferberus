@@ -1,0 +1,5 @@
+# Tooling for interpreters where Hypothesis cannot be installed (3.13t: its
+# native extension does not build for free-threaded 3.13). Build + upstream
+# suite only.
+maturin==1.16.0
+pytest==9.2.0
