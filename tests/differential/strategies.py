@@ -379,7 +379,7 @@ def value_for(draw, rules, depth=0):
         return draw(st.sampled_from(sorted(allowed, key=repr)))
     if types:
         name = draw(st.sampled_from(types))
-        if name in _TYPE_VALUES:
+        if isinstance(name, str) and name in _TYPE_VALUES:
             return draw(_TYPE_VALUES[name])
     if "regex" in rules:
         return draw(strings)
