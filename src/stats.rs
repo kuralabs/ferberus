@@ -19,13 +19,12 @@ pub enum Stat {
     DeclinedDisabled,
     DeclinedExoticClass,
     DeclinedInstanceOverride,
-    DeclinedChild,
     DeclinedDocumentType,
     DeclinedSchemaType,
     DeclinedUnsupportedSchema,
 }
 
-const NAMES: [&str; 12] = [
+const NAMES: [&str; 11] = [
     "native_calls",
     "native_frames",
     "object_frames",
@@ -34,7 +33,6 @@ const NAMES: [&str; 12] = [
     "declined_disabled",
     "declined_exotic_class",
     "declined_instance_override",
-    "declined_child",
     "declined_document_type",
     "declined_schema_type",
     "declined_unsupported_schema",

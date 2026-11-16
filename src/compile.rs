@@ -7,8 +7,8 @@
 //! units are processed by the Python reference implementation.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use pyo3::ffi;
 use pyo3::prelude::*;
@@ -550,6 +550,8 @@ pub struct Guard {
     nodes: Vec<GuardNode>,
     /// The schema contains containers whose mutation cannot be detected.
     pub opaque: bool,
+    /// Depends on registry entries.
+    pub references: bool,
 }
 
 impl Guard {
@@ -762,7 +764,38 @@ pub struct Program {
     pub danced: AtomicU64,
 }
 
+/// Programs by the address of their schema dict, for schemas that are not
+/// wrapped in a `DefinitionSchema` of their own: the schemas of child
+/// validators that are called from Python, and schemas passed with every
+/// call. A program keeps its dict alive, so an address cannot be reused
+/// while it is listed here.
+static PROGRAMS: LazyLock<Mutex<HashMap<usize, Py<Program>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Upper bound for the number of programs kept (and schemas kept alive).
+const MAX_PROGRAMS: usize = 256;
+
 impl Program {
+    /// The cached program for `schema`, current or not.
+    pub fn cached<'py>(schema: &Bound<'py, PyDict>) -> Option<Bound<'py, Program>> {
+        let programs = PROGRAMS.lock().ok()?;
+        programs.get(&(schema.as_ptr() as usize)).map(|program| program.bind(schema.py()).clone())
+    }
+
+    pub fn cache(program: &Bound<'_, Program>) {
+        if let Ok(mut programs) = PROGRAMS.lock() {
+            if programs.len() >= MAX_PROGRAMS {
+                programs.clear();
+            }
+            programs.insert(program.get().level.src.as_ptr() as usize, program.clone().unbind());
+        }
+    }
+
+    pub fn clear_cache() {
+        if let Ok(mut programs) = PROGRAMS.lock() {
+            programs.clear();
+        }
+    }
+
     /// Whether this program still describes `schema` for class `info`.
     pub fn is_current(
         &self,
@@ -860,6 +893,7 @@ impl<'a, 'py> Compiler<'a, 'py> {
             return Ok(None);
         };
         let resolved = storage.get_item(name)?;
+        self.guard.references = true;
         self.guard.nodes.push(GuardNode::Reference(
             storage.unbind(),
             name.clone().unbind(),
@@ -897,6 +931,17 @@ impl<'a, 'py> Compiler<'a, 'py> {
             return Ok(found.clone());
         }
         let py = self.py;
+        // a nested schema that is also used on its own (e.g. the rules of a
+        // validator class, against which schemas are validated)
+        if depth > 0
+            && let Some(program) = Program::cached(schema)
+            && !program.get().guard.references
+            && program.get().is_current(py, self.info, schema, &self.types_mapping, &self.registries)
+        {
+            let level = program.get().level.clone();
+            self.level_memo.insert(key, level.clone());
+            return Ok(level);
+        }
         if depth > MAX_DEPTH || !self.in_progress.insert(key) {
             return Ok(Arc::new(Level::unsupported(py, schema, "schema nested too deeply or recursive")));
         }

@@ -22,6 +22,7 @@ from ferberus.schema import (
     rules_set_registry,
     DefinitionSchema,
     SchemaError,
+    SchemaValidatorMixin,
 )
 from ferberus.utils import drop_item_from_tuple, readonly_classproperty, TypeDefinition
 
@@ -1881,6 +1882,8 @@ def _analyze_class(cls):
         _static_lookup(cls, 'schema') is originals['schema'],
         frozenset(sensitive),
         # instances can be assembled without calling __new__ / __init__
-        _static_lookup(cls, '__init__') is originals['__init__']
+        # (the __init__ of schema validators only adds defaults that their
+        # children inherit through the configuration anyway)
+        _static_lookup(cls, '__init__') in (originals['__init__'], SchemaValidatorMixin.__dict__['__init__'])
         and _static_lookup(cls, '__new__') is object.__dict__['__new__'],
     )

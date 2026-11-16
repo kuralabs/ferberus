@@ -145,6 +145,18 @@ impl<'py> Cfg<'py> {
         value: &Bound<'py, PyAny>,
         rules: Option<&Arc<RuleSet>>,
     ) -> PyResult<Option<Cfg<'py>>> {
+        self.with_allow_unknown_as(refs, value, rules, false)
+    }
+
+    /// `trusted`: the caller compiled `rules` for `value` (which may wrap
+    /// the dict the rules were compiled from).
+    fn with_allow_unknown_as(
+        &self,
+        refs: &Refs,
+        value: &Bound<'py, PyAny>,
+        rules: Option<&Arc<RuleSet>>,
+        trusted: bool,
+    ) -> PyResult<Option<Cfg<'py>>> {
         let mut cfg = self.clone();
         cfg.au_truthy = value.is_truthy()?;
         cfg.au_is_str = is_str(value);
@@ -153,7 +165,7 @@ impl<'py> Cfg<'py> {
         cfg.au_hooks = false;
         if cfg.au_is_mapping {
             match rules {
-                Some(rules) if rules.unsupported.is_none() && rules.src.as_ptr() == value.as_ptr() => {
+                Some(rules) if rules.unsupported.is_none() && (trusted || rules.src.as_ptr() == value.as_ptr()) => {
                     cfg.au_hooks = rules.hooks;
                     cfg.au_rules = Some(rules.clone())
                 }
@@ -190,7 +202,14 @@ struct Frame<'a, 'py> {
     log: RefCell<Option<Bound<'py, PyList>>>,
     /// Error trees, only kept once the order of errors became ambiguous.
     trees: RefCell<Option<(Bound<'py, PyAny>, Bound<'py, PyAny>)>>,
+    /// The order of the frame's errors has been unambiguous so far.
     clean: Cell<bool>,
+    /// All errors of the frame (and of its children) have paths of plain
+    /// `str` / `int` elements: adding them to error trees cannot raise, so
+    /// the trees need not exist yet.
+    plain: Cell<bool>,
+    /// Length of the error list as the engine last saw it.
+    known_errors: Cell<usize>,
     unrequired: RefCell<Option<Bound<'py, PySet>>>,
     /// In the child of an `*of` rule: the `allow_unknown` of the validator
     /// that evaluates the rule, with its compiled form.
@@ -224,6 +243,8 @@ pub struct Engine<'py> {
     py: Python<'py>,
     refs: &'static Refs,
     validator: Bound<'py, PyAny>,
+    /// The validator that was called is itself a child validator.
+    root_is_child: bool,
     /// The validator's class can be instantiated natively, see
     /// [`ClassInfo::plain_construction`].
     plain_children: bool,
@@ -258,6 +279,8 @@ struct Checked<'py> {
     info: Bound<'py, ClassInfo>,
     instance: Bound<'py, PyDict>,
     config: Bound<'py, PyDict>,
+    /// The validator is a child validator that Python code called.
+    is_child: bool,
     schema_object: Bound<'py, PyAny>,
     schema: Bound<'py, PyDict>,
     /// The schema is a `DefinitionSchema` that can carry its program.
@@ -298,7 +321,14 @@ fn check<'py>(validator: &Bound<'py, PyAny>) -> PyResult<Option<Checked<'py>>> {
     let Ok(instance) = instance.cast_into_exact::<PyDict>() else {
         return Ok(None);
     };
-    if instance.len() != INSTANCE_ATTRIBUTES {
+    // The usual attributes and nothing else? `_unrequired_by_excludes` only
+    // exists after the first validation.
+    let attributes = instance.len();
+    let usual = match instance.contains(intern!(py, "_unrequired_by_excludes"))? {
+        true => attributes == INSTANCE_ATTRIBUTES,
+        false => attributes == INSTANCE_ATTRIBUTES - 1,
+    };
+    if !usual {
         // unusual set of attributes: make sure none shadows a handler
         let sensitive = info.get().sensitive.as_ref().expect("non-exotic class").bind(py);
         for (name, _) in dict_snapshot(&instance) {
@@ -312,12 +342,10 @@ fn check<'py>(validator: &Bound<'py, PyAny>) -> PyResult<Option<Checked<'py>>> {
     let Ok(config) = attribute(&instance, validator, intern!(py, "_config"))?.cast_into_exact::<PyDict>() else {
         return Ok(None);
     };
-    if let Some(is_child) = config.get_item(intern!(py, "is_child"))?
-        && is_child.is_truthy()?
-    {
-        stats::count(Stat::DeclinedChild);
-        return Ok(None);
-    }
+    let is_child = match config.get_item(intern!(py, "is_child"))? {
+        Some(is_child) => is_child.is_truthy()?,
+        None => false,
+    };
 
     let schema_object = if info.get().schema_is_plain {
         attribute(&instance, validator, intern!(py, "_schema"))?
@@ -341,7 +369,18 @@ fn check<'py>(validator: &Bound<'py, PyAny>) -> PyResult<Option<Checked<'py>>> {
 
     let types_mapping = validator.getattr(intern!(py, "types_mapping"))?;
     let registries = Registries::of(refs, &config)?;
-    Ok(Some(Checked { refs, info, instance, config, schema_object, schema, cacheable, types_mapping, registries }))
+    Ok(Some(Checked {
+        refs,
+        info,
+        instance,
+        config,
+        is_child,
+        schema_object,
+        schema,
+        cacheable,
+        types_mapping,
+        registries,
+    }))
 }
 
 impl<'py> Checked<'py> {
@@ -361,6 +400,14 @@ impl<'py> Checked<'py> {
         {
             return Ok(found);
         }
+        if let Some(found) = Program::cached(&self.schema)
+            && self.is_current(&found)
+        {
+            if self.cacheable {
+                self.schema_object.setattr(name, &found)?;
+            }
+            return Ok(found);
+        }
         stats::count(Stat::Compilations);
         let compiled = Compiler::new(self.refs, self.info.get(), self.types_mapping.clone(), &self.registries)?
             .program(&self.schema)?;
@@ -368,6 +415,7 @@ impl<'py> Checked<'py> {
         if self.cacheable {
             self.schema_object.setattr(name, &compiled)?;
         }
+        Program::cache(&compiled);
         Ok(compiled)
     }
 
@@ -377,7 +425,9 @@ impl<'py> Checked<'py> {
     fn dance(&self, validator: &Bound<'py, PyAny>, program: Bound<'py, Program>) -> PyResult<Bound<'py, Program>> {
         let py = validator.py();
         let generation = CACHE_GENERATION.load(Ordering::Acquire);
-        if program.get().danced.load(Ordering::Acquire) == generation {
+        // (for a plain dict, as child validators have, `schema.copy()` and
+        // the item assignments have no effects)
+        if !self.cacheable || program.get().danced.load(Ordering::Acquire) == generation {
             return Ok(program);
         }
         self.refs.schema_copy_dance.bind(py).call1((validator,))?;
@@ -412,14 +462,30 @@ impl<'py> Checked<'py> {
             purge_readonly: truthy(config.get_item(intern!(py, "purge_readonly"))?)?,
             ignore_none_values: truthy(config.get_item(intern!(py, "ignore_none_values"))?)?,
         };
-        let au_rules = match allow_unknown.cast_exact::<PyDict>() {
-            Ok(dict) => Some(
-                Compiler::new(self.refs, self.info.get(), self.types_mapping.clone(), &self.registries)?
-                    .rules(dict, 0)?,
-            ),
-            Err(_) => None,
+        // a dict, or one wrapped in a DefinitionSchema (as schema validators
+        // are given), which behaves like the dict it wraps
+        let au_dict = match allow_unknown.cast_exact::<PyDict>() {
+            Ok(dict) => Some(dict.clone()),
+            Err(_) => {
+                let wrapper = allow_unknown.get_type();
+                if wrapper.is(self.refs.schema_validation_schema.bind(py))
+                    || wrapper.is(self.refs.unvalidated_schema.bind(py))
+                    || wrapper.is(self.refs.definition_schema.bind(py))
+                {
+                    allow_unknown.getattr(intern!(py, "schema"))?.cast_into_exact::<PyDict>().ok()
+                } else {
+                    None
+                }
+            }
         };
-        let cfg = base.with_allow_unknown(self.refs, &allow_unknown, au_rules.as_ref())?;
+        let au_rules = match &au_dict {
+            Some(dict) => Some(
+                Compiler::new(self.refs, self.info.get(), self.types_mapping.clone(), &self.registries)?
+                    .rules(dict, 1)?,
+            ),
+            None => None,
+        };
+        let cfg = base.with_allow_unknown_as(self.refs, &allow_unknown, au_rules.as_ref(), true)?;
         if cfg.is_none() {
             stats::count(Stat::DeclinedUnsupportedSchema);
             stats::reason("allow_unknown of the validator");
@@ -434,7 +500,8 @@ impl<'py> Checked<'py> {
         let handler = attribute(&self.instance, validator, intern!(py, "error_handler"))?;
         let handler_type = handler.get_type();
         let stock = handler_type.is(self.refs.basic_error_handler.bind(py))
-            || handler_type.is(self.refs.schema_error_handler.bind(py));
+            || handler_type.is(self.refs.schema_error_handler.bind(py))
+            || handler_type.is(self.refs.toy_error_handler.bind(py).get_type());
         Ok((handler, stock))
     }
 
@@ -455,10 +522,15 @@ impl<'py> Checked<'py> {
             py,
             refs: self.refs,
             validator: validator.clone(),
+            root_is_child: self.is_child,
             plain_children: self.info.get().plain_construction && self.info.get().schema_is_plain,
             instance: self.instance.clone(),
             config: self.config.clone(),
-            root_document: document.clone().into_any(),
+            // self.root_document
+            root_document: match self.config.get_item(intern!(py, "root_document"))? {
+                Some(root_document) => root_document,
+                None => document.clone().into_any(),
+            },
             emitter,
         })
     }
@@ -580,11 +652,16 @@ pub fn process(
     instance.set_item(intern!(py, "_schema_error_tree"), py.None())?;
     let document = document.copy()?;
     instance.set_item(intern!(py, "document"), &document)?;
-    checked.config.set_item(intern!(py, "_is_normalized"), false)?;
+    if !checked.is_child {
+        checked.config.set_item(intern!(py, "_is_normalized"), false)?;
+    }
     let (handler, stock) = checked.handler(validator)?;
     if stock {
-        // BasicErrorHandler.start(): self.clear()
-        handler.setattr(intern!(py, "tree"), PyDict::new(py))?;
+        // BasicErrorHandler.start(): self.clear(); the toy handler of child
+        // validators has nothing to reset
+        if !handler.get_type().is(checked.refs.toy_error_handler.bind(py).get_type()) {
+            handler.setattr(intern!(py, "tree"), PyDict::new(py))?;
+        }
     } else {
         handler.call_method1(intern!(py, "start"), (validator,))?;
     }
@@ -646,6 +723,8 @@ impl<'py> Engine<'py> {
             update,
             is_normalized: Cell::new(is_normalized),
             clean: Cell::new(errors.is_empty()),
+            plain: Cell::new(true),
+            known_errors: Cell::new(errors.len()),
             errors: RefCell::new(Some(errors)),
             log: RefCell::new(Some(log)),
             trees: RefCell::new(None),
@@ -691,6 +770,8 @@ impl<'py> Engine<'py> {
             log: RefCell::new(None),
             trees: RefCell::new(None),
             clean: Cell::new(true),
+            plain: Cell::new(true),
+            known_errors: Cell::new(0),
             unrequired: RefCell::new(None),
             logical_au: None,
             dpath: OnceCell::new(),
@@ -733,6 +814,8 @@ impl<'py> Engine<'py> {
             log: RefCell::new(Some(log)),
             trees: RefCell::new(None),
             clean: Cell::new(true),
+            plain: Cell::new(true),
+            known_errors: Cell::new(0),
             unrequired: RefCell::new(None),
             logical_au: None,
             dpath: OnceCell::new(),
@@ -942,13 +1025,15 @@ impl<'py> Engine<'py> {
         let sorted = errors.len();
         for error in new {
             errors.append(error)?;
-            if f.clean.get() && !crate::errors::has_plain_paths(error)? {
+            if f.plain.get() && !crate::errors::has_plain_paths(error)? {
+                f.plain.set(false);
                 f.clean.set(false);
             }
         }
         let mut clean = f.clean.get();
         let sorting = sort_errors(&errors, sorted, &mut clean);
         f.clean.set(clean);
+        f.known_errors.set(errors.len());
         sorting?;
 
         let log = self.error_log(f)?;
@@ -956,10 +1041,10 @@ impl<'py> Engine<'py> {
             // Python code may have replaced or built the trees meanwhile
             *f.trees.borrow_mut() = None;
         }
-        if f.trees.borrow().is_none() && (!clean || self.object_trees_exist(f)?) {
+        if f.trees.borrow().is_none() && (!f.plain.get() || self.object_trees_exist(f)?) {
             // From here on the trees are maintained eagerly: once paths are
-            // not plain or their order is ambiguous, adding to the trees can
-            // raise like upstream does during validation.
+            // not plain, adding to the trees can raise like upstream does
+            // during validation.
             let trees = if let Some(obj) = &f.obj {
                 (obj.getattr(intern!(py, "document_error_tree"))?, obj.getattr(intern!(py, "schema_error_tree"))?)
             } else {
@@ -1015,14 +1100,14 @@ impl<'py> Engine<'py> {
 
     /// `validator._errors` of a finished native child, if there are any.
     ///
-    /// The parent inherits the child's doubts about the order of errors.
+    /// The parent inherits the child's doubts about error paths.
     fn errors_of(&self, f: &Frame<'_, 'py>) -> Option<Bound<'py, PyList>> {
         let errors = f.errors.borrow().as_ref().filter(|errors| !errors.is_empty()).cloned();
         if errors.is_some()
-            && !f.clean.get()
+            && !f.plain.get()
             && let Some(parent) = f.parent
         {
-            parent.clean.set(false);
+            parent.plain.set(false);
         }
         errors
     }
@@ -1105,14 +1190,16 @@ impl<'py> Engine<'py> {
     ) -> PyResult<Bound<'py, PyDict>> {
         let py = self.py;
         let config = self.config.copy()?;
-        config.set_item(intern!(py, "is_child"), true)?;
-        // (no 'error_handler': the child of a child validator gets a new
-        // BasicErrorHandler, only first-level children share the toy handler)
-        let root = &self.validator;
-        config.set_item(intern!(py, "root_allow_unknown"), root.getattr(intern!(py, "allow_unknown"))?)?;
-        config.set_item(intern!(py, "root_require_all"), root.getattr(intern!(py, "require_all"))?)?;
-        config.set_item(intern!(py, "root_document"), &self.root_document)?;
-        config.set_item(intern!(py, "root_schema"), root.getattr(intern!(py, "schema"))?)?;
+        if !self.root_is_child {
+            // (no 'error_handler': the child of a child validator gets a new
+            // BasicErrorHandler, only first-level children share the toy handler)
+            config.set_item(intern!(py, "is_child"), true)?;
+            let root = &self.validator;
+            config.set_item(intern!(py, "root_allow_unknown"), root.getattr(intern!(py, "allow_unknown"))?)?;
+            config.set_item(intern!(py, "root_require_all"), root.getattr(intern!(py, "require_all"))?)?;
+            config.set_item(intern!(py, "root_document"), &self.root_document)?;
+            config.set_item(intern!(py, "root_schema"), root.getattr(intern!(py, "schema"))?)?;
+        }
         config.set_item(intern!(py, "allow_unknown"), &f.cfg.allow_unknown)?;
         config.set_item(intern!(py, "require_all"), &f.cfg.require_all)?;
         if let Some(purge_unknown) = &f.cfg.purge_unknown {
@@ -1156,7 +1243,7 @@ impl<'py> Engine<'py> {
                 for (name, value) in kwargs {
                     config.set_item(name, value)?;
                 }
-                let first_level = f.parent.is_none();
+                let first_level = f.parent.is_none() && !self.root_is_child;
                 if first_level {
                     config.set_item(intern!(py, "is_child"), true)?;
                     let get = |name| -> PyResult<Bound<'py, PyAny>> {
@@ -1235,7 +1322,7 @@ impl<'py> Engine<'py> {
         let errors = child.getattr(intern!(py, "_errors"))?;
         Ok(if errors.is_truthy()? {
             // nothing is known about errors that come from Python
-            f.clean.set(false);
+            f.plain.set(false);
             Some(errors)
         } else {
             None
@@ -1255,7 +1342,7 @@ impl<'py> Engine<'py> {
         let result = child.call_method(intern!(py, "normalized"), (document,), Some(&kwargs))?;
         let errors = child.getattr(intern!(py, "_errors"))?;
         if errors.is_truthy()? {
-            f.clean.set(false);
+            f.plain.set(false);
             Ok((result, Some(errors)))
         } else {
             Ok((result, None))
@@ -1464,7 +1551,8 @@ impl<'py> Engine<'py> {
             return Ok(());
         }
         let field = key.object(py);
-        let schema_crumb = self.name(if f.parent.is_some() { "allow_unknown" } else { "__allow_unknown__" });
+        let schema_crumb =
+            self.name(if f.parent.is_some() || self.root_is_child { "allow_unknown" } else { "__allow_unknown__" });
         let rules = f.cfg.au_rules.as_ref();
         let mode = self.mode(f, rules.is_some(), rules.is_some_and(|rules| rules.hooks), true, true);
         let errors = match (mode, rules) {
@@ -1675,7 +1763,12 @@ impl<'py> Engine<'py> {
     /// Python code with access to the validator ran: it may have filed
     /// errors, so nothing is known about the order of the error list anymore.
     fn after_hook(&self, f: &Frame<'_, 'py>) {
-        f.clean.set(false);
+        let count = f.errors.borrow().as_ref().map_or(0, |errors| errors.len());
+        if count != f.known_errors.get() {
+            f.known_errors.set(count);
+            f.clean.set(false);
+            f.plain.set(false);
+        }
     }
 
     fn run_op(
@@ -1849,7 +1942,7 @@ impl<'py> Engine<'py> {
                     })
                 {
                     let subject = subject.as_bytes();
-                    let matched = if subject.len() >= ferberus_regex::DETACH_THRESHOLD {
+                    let matched = if subject.len() >= crate::REGEX_DETACH_THRESHOLD.load(Ordering::Relaxed) {
                         py.detach(|| fast.is_match(subject))
                     } else {
                         fast.is_match(subject)

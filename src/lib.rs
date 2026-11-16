@@ -20,6 +20,10 @@ mod types;
 
 pub(crate) static ENABLED: AtomicBool = AtomicBool::new(true);
 pub(crate) static REGEX_FAST: AtomicBool = AtomicBool::new(true);
+/// Subjects of the `regex` rule at least this long (bytes) are matched with
+/// the interpreter released.
+pub(crate) static REGEX_DETACH_THRESHOLD: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(ferberus_regex::DETACH_THRESHOLD);
 
 #[pymodule(gil_used = false)]
 mod _core {
@@ -123,6 +127,7 @@ mod _core {
     #[pyfunction]
     fn caches_cleared() {
         compile::CACHE_GENERATION.fetch_add(1, Ordering::AcqRel);
+        compile::Program::clear_cache();
     }
 
     /// Switches the `regex`-crate fast path of the `regex` rule on or off;
@@ -130,6 +135,14 @@ mod _core {
     #[pyfunction]
     fn set_regex_fast(enabled: bool) -> bool {
         REGEX_FAST.swap(enabled, Ordering::AcqRel)
+    }
+
+    /// Sets the subject length from which the `regex` rule releases the
+    /// interpreter while matching; returns the previous value. For
+    /// experiments, see `benches/exp_gil_release.py`.
+    #[pyfunction]
+    fn set_regex_detach_threshold(length: usize) -> usize {
+        REGEX_DETACH_THRESHOLD.swap(length, Ordering::AcqRel)
     }
 
     /// What the fast path of the `regex` rule answers for

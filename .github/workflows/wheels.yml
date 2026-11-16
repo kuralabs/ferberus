@@ -1,0 +1,111 @@
+name: Wheels
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+# ferberus is built per CPython version (no abi3): the engine reads the
+# caller's objects through the non-limited C-API, see DESIGN.md.
+env:
+  INTERPRETERS: "3.9 3.10 3.11 3.12 3.13 3.14 3.15 3.14t 3.15t"
+
+jobs:
+  linux:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-latest, target: x86_64, manylinux: "2_28" }
+          - { runner: ubuntu-24.04-arm, target: aarch64, manylinux: "2_28" }
+          - { runner: ubuntu-latest, target: x86_64, manylinux: musllinux_1_2 }
+          - { runner: ubuntu-24.04-arm, target: aarch64, manylinux: musllinux_1_2 }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --out dist --interpreter ${{ env.INTERPRETERS }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux-${{ matrix.target }}-${{ matrix.manylinux }}
+          path: dist
+
+  macos:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-13, target: x86_64 }
+          - { runner: macos-14, target: aarch64 }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v6
+      - run: uv python install $INTERPRETERS
+      - uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --find-interpreter
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos-${{ matrix.target }}
+          path: dist
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v6
+      - run: uv python install 3.9 3.10 3.11 3.12 3.13 3.14 3.15 3.14t 3.15t
+      - uses: PyO3/maturin-action@v1
+        with:
+          target: x64
+          args: --release --out dist --find-interpreter
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-x64
+          path: dist
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist
+
+  # Every wheel must pass the upstream suite before anything is published.
+  test:
+    needs: [linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: pyeve/cerberus
+          ref: 83f5dada76aa3179ef21b677a7f4235bf20c1566
+          path: cerberus-upstream
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels-linux-x86_64-2_28
+          path: dist
+      - uses: astral-sh/setup-uv@v6
+      - name: Upstream suite against the built wheels
+        run: |
+          for v in $INTERPRETERS; do
+            uv venv --python "$v" ".venv-$v"
+            uv pip install --python ".venv-$v/bin/python" --no-index --find-links dist ferberus
+            uv pip install --python ".venv-$v/bin/python" pytest
+            (cd /tmp && FERBERUS_UPSTREAM_PACKAGE="$GITHUB_WORKSPACE/cerberus-upstream/cerberus" \
+              "$GITHUB_WORKSPACE/.venv-$v/bin/python" -m pytest -p ferberus.compat -p no:cacheprovider \
+              --rootdir "$GITHUB_WORKSPACE/cerberus-upstream" -c "$GITHUB_WORKSPACE/cerberus-upstream/pyproject.toml" \
+              "$GITHUB_WORKSPACE/cerberus-upstream/cerberus/tests" -q)
+          done

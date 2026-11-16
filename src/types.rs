@@ -111,6 +111,12 @@ pub fn is_exact_dict(obj: &Bound<'_, PyAny>) -> bool {
     exact_of(obj) == Exact::Dict
 }
 
+type MaskEntry = (Py<PyAny>, Py<PyAny>, Option<u16>);
+
+/// Masks by the addresses of `(included_types, excluded_types)`.
+static MASKS: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<(usize, usize), MaskEntry>>> =
+    std::sync::LazyLock::new(Default::default);
+
 /// One entry of `types_mapping`, prepared for fast matching.
 pub struct TypeCheck {
     pub included: Py<PyAny>,
@@ -125,17 +131,34 @@ impl TypeCheck {
         let py = definition.py();
         let included = definition.getattr("included_types")?;
         let excluded = definition.getattr("excluded_types")?;
-        let mask = if plain_type_tuple(refs, &included) && plain_type_tuple(refs, &excluded) {
-            let mut mask = 0u16;
-            for (i, tp) in exact_types(py, refs).iter().enumerate() {
-                let tp = tp.cast::<PyType>()?;
-                if tp.is_subclass(&included)? && !tp.is_subclass(&excluded)? {
-                    mask |= 1 << i;
+        // computing the mask means two dozen `issubclass` calls against
+        // ABCs: remembered per pair of tuples
+        let key = (included.as_ptr() as usize, excluded.as_ptr() as usize);
+        let cached = MASKS.lock().ok().and_then(|masks| masks.get(&key).map(|entry| entry.2));
+        let mask = match cached {
+            Some(mask) => mask,
+            None => {
+                let mask = if plain_type_tuple(refs, &included) && plain_type_tuple(refs, &excluded) {
+                    let mut mask = 0u16;
+                    for (i, tp) in exact_types(py, refs).iter().enumerate() {
+                        let tp = tp.cast::<PyType>()?;
+                        if tp.is_subclass(&included)? && !tp.is_subclass(&excluded)? {
+                            mask |= 1 << i;
+                        }
+                    }
+                    Some(mask)
+                } else {
+                    None
+                };
+                if let Ok(mut masks) = MASKS.lock() {
+                    if masks.len() >= 1024 {
+                        masks.clear();
+                    }
+                    // the tuples are kept alive, so their addresses stay theirs
+                    masks.insert(key, (included.clone().unbind(), excluded.clone().unbind(), mask));
                 }
+                mask
             }
-            Some(mask)
-        } else {
-            None
         };
         Ok(TypeCheck { included: included.unbind(), excluded: excluded.unbind(), mask })
     }

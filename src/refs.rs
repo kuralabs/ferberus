@@ -82,9 +82,16 @@ pub struct Refs {
     pub error_list: Py<PyAny>,
     pub schema_rule_type_error: Py<PyAny>,
     pub definition_schema: Py<PyAny>,
+    pub unvalidated_schema: Py<PyAny>,
+    pub schema_validation_schema: Py<PyAny>,
     pub basic_error_handler: Py<PyAny>,
     pub schema_error_handler: Py<PyAny>,
     pub base_error_handler: Py<PyAny>,
+    /// The methods of the stock error handlers as they were defined, to
+    /// notice monkeypatching: `(class __dict__, name, original)`.
+    pub handler_methods: Vec<(Py<PyAny>, Py<PyString>, Py<PyAny>)>,
+    /// `len(SchemaErrorHandler.__dict__)`
+    pub schema_error_handler_attributes: usize,
     pub analyze_class: Py<PyAny>,
     pub schema_copy_dance: Py<PyAny>,
     pub begin_validation: Py<PyAny>,
@@ -122,11 +129,46 @@ impl Refs {
         let schema = py.import("ferberus.schema")?;
         let abc = py.import("collections.abc")?;
         let builtins = py.import("builtins")?;
+        let mut handler_methods = Vec::new();
+        for (class, names) in [
+            (
+                "BasicErrorHandler",
+                &[
+                    "__call__",
+                    "add",
+                    "clear",
+                    "pretty_tree",
+                    "_format_message",
+                    "_insert_error",
+                    "_insert_group_error",
+                    "_insert_logic_error",
+                    "_purge_empty_dicts",
+                    "_rewrite_error_path",
+                    "_rewrite_group_error_path",
+                    "_rewrite_logic_error_path",
+                ][..],
+            ),
+            ("BaseErrorHandler", &["extend"][..]),
+        ] {
+            let namespace = errors.getattr(class)?.getattr("__dict__")?;
+            for name in names {
+                handler_methods.push((
+                    namespace.clone().unbind(),
+                    PyString::intern(py, name).unbind(),
+                    namespace.get_item(name)?.unbind(),
+                ));
+            }
+        }
+        let schema_error_handler_attributes = errors.getattr("SchemaErrorHandler")?.getattr("__dict__")?.len()?;
         Ok(Refs {
+            handler_methods,
+            schema_error_handler_attributes,
             validation_error: errors.getattr("ValidationError")?.unbind(),
             error_list: errors.getattr("ErrorList")?.unbind(),
             schema_rule_type_error: validator.getattr("_SchemaRuleTypeError")?.unbind(),
             definition_schema: schema.getattr("DefinitionSchema")?.unbind(),
+            unvalidated_schema: schema.getattr("UnvalidatedSchema")?.unbind(),
+            schema_validation_schema: schema.getattr("SchemaValidationSchema")?.unbind(),
             basic_error_handler: errors.getattr("BasicErrorHandler")?.unbind(),
             schema_error_handler: errors.getattr("SchemaErrorHandler")?.unbind(),
             base_error_handler: errors.getattr("BaseErrorHandler")?.unbind(),

@@ -79,6 +79,16 @@ class DefinitionSchema(MutableMapping):
         self.validate(schema)
         self.schema = schema
 
+    def __getstate__(self):
+        # ferberus: for copying and pickling the instance is what it would be
+        # upstream: with its schema validator, without the compiled program
+        # (a cache of the native engine).
+        state = self.__dict__.copy()
+        state.pop('_ferberus_program', None)
+        if '_schema_validator_arguments' in state and '_schema_validator' not in state:
+            state['_schema_validator'] = self.schema_validator
+        return state
+
     @property
     def schema_validator(self):
         try:

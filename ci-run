@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# One-shot command in the dev image (CI); see ./dev for the long-lived variant.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec docker run --rm --init \
+    --cap-add=SYS_PTRACE --cap-add=PERFMON \
+    -e FERBERUS_IMAGE_DIGEST="$(docker image inspect --format '{{.Id}}' "${FERBERUS_IMAGE:-ferberus-dev}")" \
+    -e HYPOTHESIS_PROFILE -e FERBERUS_PYTHONS -e FERBERUS_FUZZ_SECONDS \
+    -v "$ROOT:/workspaces/ferberus" \
+    -v ferberus-cargo-registry:/usr/local/cargo/registry \
+    -v ferberus-cargo-git:/usr/local/cargo/git \
+    -v ferberus-target:/var/cache/ferberus/target \
+    -v ferberus-uv-cache:/var/cache/ferberus/uv \
+    -w /workspaces/ferberus \
+    "${FERBERUS_IMAGE:-ferberus-dev}" "$@"

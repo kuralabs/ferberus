@@ -425,6 +425,18 @@ pub fn render_errors<'py>(handler: &Bound<'py, PyAny>, errors: &Bound<'py, PyAny
     if !(handler_type.is(refs.basic_error_handler.bind(py)) || handler_type.is(refs.schema_error_handler.bind(py))) {
         return not_implemented();
     }
+    // somebody patched the stock handlers: their Python code decides
+    for (namespace, name, original) in &refs.handler_methods {
+        match namespace.bind(py).get_item(name.bind(py)) {
+            Ok(current) if current.is(original.bind(py)) => {}
+            _ => return not_implemented(),
+        }
+    }
+    if refs.schema_error_handler.bind(py).getattr(intern!(py, "__dict__"))?.len()?
+        != refs.schema_error_handler_attributes
+    {
+        return not_implemented();
+    }
     if !(errors.get_type().is(refs.error_list.bind(py)) || exact_of(errors) == Exact::List) {
         return not_implemented();
     }

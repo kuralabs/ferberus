@@ -19,6 +19,11 @@ if settings is not None:
     settings.register_profile("ci", max_examples=2000, **_common)
     settings.register_profile("long", max_examples=100_000, **_common)
     settings.register_profile("soak", max_examples=2_000_000, **_common)
+    if os.environ.get("HYPOTHESIS_MAX_EXAMPLES"):
+        # ad-hoc session length: HYPOTHESIS_PROFILE=custom HYPOTHESIS_MAX_EXAMPLES=20000
+        settings.register_profile(
+            "custom", max_examples=int(os.environ["HYPOTHESIS_MAX_EXAMPLES"]), **_common
+        )
     settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
 
 

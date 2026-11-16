@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Everything runs in the image built from .devcontainer/Dockerfile, the very
+  # same environment that is used for development.
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .devcontainer/Dockerfile
+          tags: ferberus-dev
+          load: true
+          build-args: |
+            USER_UID=1001
+            USER_GID=1001
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Image digest
+        run: docker image inspect --format '{{.Id}}' ferberus-dev
+      - name: Lint
+        run: ./ci-run scripts/ci.sh lint
+      - name: Rust tests and fuzz smoke test
+        run: ./ci-run scripts/ci.sh rust
+      - name: Upstream suite and differential tests on every interpreter
+        run: ./ci-run scripts/ci.sh python
+      - name: Performance regression check
+        run: ./ci-run scripts/ci.sh bench
