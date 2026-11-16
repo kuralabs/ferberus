@@ -143,6 +143,22 @@ def _custom_rules(lib):
             if self.root_document is not self.document and field in self.root_document:
                 self._error(field, "shadowed in root")
 
+        def _check_with_child_validator(self, field, value):
+            # a hook that validates and normalizes with child validators of its own
+            schema = {"a": {"type": "integer", "coerce": int}, "b": {"required": True}}
+            document = value if isinstance(value, dict) else {"a": value}
+            child = self._get_child_validator(
+                document_crumb=field, schema_crumb=(field, "hook"), schema=schema
+            )
+            if not child(document, update=self.update, normalize=False):
+                self._error(field, "child says no: %d" % len(child._errors))
+            other = self._get_child_validator(
+                schema=schema, allow_unknown=True, purge_unknown=False
+            )
+            other.normalized(document)
+            if other._errors:
+                self._error(other._errors)
+
         def _normalize_coerce_upper(self, value):
             return value.upper()
 

@@ -34,6 +34,9 @@ for stage in "${stages[@]}"; do
                 fi
                 echo "::endgroup::"
             done
+            # the doctests of Cerberus' documentation (upstream: tox -e doctest)
+            scripts/develop.sh 3.14
+            scripts/upstream-doctests.sh
             ;;
         bench)
             scripts/develop.sh 3.14

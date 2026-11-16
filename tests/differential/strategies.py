@@ -217,7 +217,9 @@ def rules_sets(depth, validator="plain", normalization=True, refs=False):
                     st.sampled_from(["min", "max", "type", "regex", "allowed"]), max_size=3
                 ),
                 "check_with": one_or_some(
-                    st.one_of(pool(CHECKS), st.sampled_from(["short", "sees_document"]))
+                    st.one_of(
+                        pool(CHECKS), st.sampled_from(["short", "sees_document", "child_validator"])
+                    )
                 ),
             }
         )
@@ -530,6 +532,10 @@ def mutation_scenarios(draw, validators=("plain",)):
         roll = draw(st.integers(0, 9))
         if roll == 0:
             calls.append(Call("clear_caches"))
+        elif roll == 2:
+            # a schema passed with the call replaces the validator's
+            other = draw(mapping_schemas(0, validator))
+            calls.append(Call("validate", draw(document_for(other)), {"schema": other}))
         elif roll == 1:
             calls.append(Call("set_schema", draw(mapping_schemas(0, validator))))
         else:

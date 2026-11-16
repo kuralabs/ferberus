@@ -49,6 +49,7 @@ Requirements: CPython 3.9–3.15, including free-threaded 3.14t/3.15t.
 | [COMPATIBILITY.md](COMPATIBILITY.md) | Verification and every known deviation. |
 | [BENCHMARKS.md](BENCHMARKS.md) | Results, hardware, methodology. |
 | [NOTES.md](NOTES.md) | Working log: decisions, environment changes, open questions. |
+| [ROADMAP.md](ROADMAP.md) | What gates 1.0.0 and what comes after. |
 
 ## Development
 
@@ -76,6 +77,6 @@ _core.set_enabled(False)  # reference implementation only
 
 ## License
 
-ISC, like Cerberus. ferberus' Python layer is derived from Cerberus
-(© Nicola Iarocci and contributors); see [LICENSE](LICENSE) and
+ISC, like Cerberus. © KuraLabs S.R.L. ferberus' Python layer is derived from
+Cerberus (© Nicola Iarocci and contributors); see [LICENSE](LICENSE) and
 [LICENSE.cerberus](LICENSE.cerberus).

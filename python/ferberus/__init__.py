@@ -5,7 +5,7 @@ Extensible validation for Python dictionaries. The public API mirrors
 Cerberus 1.3.x (https://python-cerberus.org/), from which the Python layer of
 this package is derived.
 
-:copyright: 2012-2023 by Nicola Iarocci (Cerberus); ferberus contributors.
+:copyright: 2026 by KuraLabs S.R.L. (ferberus); 2012-2023 by Nicola Iarocci (Cerberus).
 :license: ISC, see LICENSE for more details.
 """
 

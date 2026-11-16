@@ -12,7 +12,7 @@ requires-python = ">=3.9"
 authors = [{ name = "Carlos Jenkins" }]
 keywords = ["validation", "schema", "dictionaries", "documents", "normalization", "cerberus"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Natural Language :: English",
     "Operating System :: OS Independent",

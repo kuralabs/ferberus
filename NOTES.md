@@ -31,6 +31,12 @@ installed on the host).
 | 2026-11-16 | Initial image: `debian:trixie-20261104-slim`, rustup 1.29.3, Rust 1.100.0 (+clippy, rustfmt, llvm-tools, rust-src), nightly-2026-11-10 (cargo-fuzz), cargo-binstall 1.27.0, cargo-nextest 0.9.152, cargo-deny 0.20.2, cargo-fuzz 0.13.2, samply 0.13.1, flamegraph 0.6.15, uv 0.13.8, CPython 3.9–3.15 + 3.13t/3.14t/3.15t, maturin 1.16.0, pytest 9.2.0, pytest-benchmark 5.3.1, hypothesis 6.170.15, ruff 0.17.5, py-spy 0.4.3, linux-perf 6.12, gdb. | Phase -1. |
 | 2026-11-16 | `PATH` in the image includes the `sbin` directories. | `setcap`/`groupadd` were not found during the first builds. |
 | 2026-11-16 | 3.9/3.10 venvs use `requirements-legacy.txt` (pytest 8.4.2, hypothesis 6.141.1); 3.13t uses `requirements-minimal.txt` (no Hypothesis). | Current pytest needs >= 3.10, Hypothesis >= 3.11; Hypothesis' native extension does not build for free-threaded 3.13. |
+| 2026-11-16 | 3.13t interpreter and `requirements-minimal.txt` removed. | PyO3 0.30 does not build for free-threaded 3.13; 3.14t is the agreed floor (D1). |
+| 2026-11-16 | `requirements-docs.txt` (sphinx 9.2.0, furo 2025.12.19, PyYAML 6.0.3) installed into the 3.14 venv. | `scripts/upstream-doctests.sh`: the 287 doctests of Cerberus' documentation run against ferberus (upstream's `tox -e doctest`). |
+
+After the last change the image was rebuilt from scratch (`./dev build
+--no-cache`, digest `sha256:7fa2be0f488c…8da5`), the container recreated and
+`scripts/ci.sh lint rust python` run in it.
 
 Image facts:
 
@@ -79,10 +85,16 @@ Image facts:
   point as a C-level method would save ~0.3 µs per call but changes what
   introspection sees (`__code__`, signatures, `mock.patch(autospec=True)`).
   The methods stay Python functions that call into the core.
-- **D8 – commits.** Work is committed on branch `engine` (allowed by Carlos
-  on 2026-11-16).
+- **D8 – commits.** Committing is allowed (Carlos, 2026-11-16).
+
+- **D9 – release.** Copyright holder is KuraLabs S.R.L. The remaining
+  performance ideas are post-1.0 (Carlos, 2026-11-16); the gates for 1.0.0
+  are in ROADMAP.md, the version is `1.0.0-rc.1` until they are passed.
+  Work moved from branch `engine` to `main`.
 
 ## Ideas not pursued yet
+
+(Planned order: ROADMAP.md.)
 
 - **Dict watchers for the mutation guard** (CPython >= 3.12,
   `PyDict_Watch`): would turn the per-call guard check (~10 % of a small
@@ -167,3 +179,4 @@ Speedups = `benches/run.py`, CPython 3.14.10, vs real Cerberus on this machine.
 | Date | Build | Session | Result |
 | --- | --- | --- | --- |
 | 2026-11-16 | before commit `3da3b97` | 100 000 examples/property requested, cut off after 1 h | findings 8 and 9 |
+| 2026-11-16 | commit `8792d8c` | regex properties, 30 000 examples each on 3.9, 3.12, 3.14 | clean, after two findings at 2000–20 000 examples: `\B` on an empty subject depends on the Python version (matches only since 3.14), `(?a)` removes 0x1c–0x1f from `\s`; both constructs are now left to `re` |

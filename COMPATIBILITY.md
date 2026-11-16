@@ -10,6 +10,8 @@ rests on.
 - The **unmodified upstream test suite** (246 tests, 1 skipped upstream)
   passes against ferberus through the `cerberus` alias on CPython 3.9–3.15
   and free-threaded 3.14t/3.15t (`scripts/upstream-tests.sh`).
+- The **doctests of Cerberus' documentation** (287, upstream's
+  `tox -e doctest`) pass against ferberus (`scripts/upstream-doctests.sh`).
 - **Differential property tests** (`tests/differential`) run random schemas,
   documents and call sequences through real Cerberus and ferberus and
   compare: return values, raised exception types and messages, the
