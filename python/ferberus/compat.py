@@ -10,8 +10,8 @@ Run code that does ``import cerberus`` against ferberus.
 objects as their ferberus counterparts.
 
 As a pytest plugin (``-p ferberus.compat``) the alias is installed before
-conftest files and tests are imported. ``FERBERUS_UPSTREAM_PACKAGE`` may point to the ``cerberus`` package
-directory of an upstream checkout; its non-code subpackages (``tests``,
+conftest files and tests are imported. ``FERBERUS_UPSTREAM_PACKAGE`` may point
+to the ``cerberus`` package directory of an upstream checkout; its non-code subpackages (``tests``,
 ``benchmarks``) then become importable as ``cerberus.tests`` etc., which is
 how the unmodified upstream suite is run against ferberus.
 """
