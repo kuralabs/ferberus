@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "python": "3.14.10",
+    "implementation": "cpython",
+    "free_threaded": false,
+    "machine": "x86_64",
+    "commit": "8792d8c",
+    "image": "sha256:7fa2be0f488c8147c76cfab653ba6da58d832a088e0a6019ab84eb90f8398da5",
+    "rounds": 7,
+    "min_time": 0.2
+  },
+  "results": {
+    "small_flat_valid": {
+      "cerberus": 0.30125681599020027,
+      "ferberus": 0.0018219605420595247
+    },
+    "small_flat_invalid": {
+      "cerberus": 0.35324946499895304,
+      "ferberus": 0.0038571550159700093
+    },
+    "small_flat_invalid_errors": {
+      "cerberus": 0.42465090201585554,
+      "ferberus": 0.008219619715029174
+    },
+    "small_flat_no_normalize": {
+      "cerberus": 0.036142063666678347,
+      "ferberus": 0.0018508982461681294
+    },
+    "deep_nesting": {
+      "cerberus": 0.0972821690083947,
+      "ferberus": 0.0010476216995950805
+    },
+    "large_list_of_integers": {
+      "cerberus": 0.02483117377657133,
+      "ferberus": 0.0002679498995803442
+    },
+    "large_list_of_dicts": {
+      "cerberus": 0.07365011899188782,
+      "ferberus": 0.0010508884453553368
+    },
+    "one_huge_document": {
+      "cerberus": 0.9283098359883297,
+      "ferberus": 0.012930470066688333
+    },
+    "anyof_oneof": {
+      "cerberus": 0.25596301900804974,
+      "ferberus": 0.004325515509117394
+    },
+    "normalization_heavy": {
+      "cerberus": 0.22776524600340053,
+      "ferberus": 0.002658729425072135
+    },
+    "regex_heavy": {
+      "cerberus": 0.1363528825022513,
+      "ferberus": 0.0010350541805793092
+    },
+    "schema_validation_cold": {
+      "cerberus": 0.010451407238308872,
+      "ferberus": 0.00453117978416712
+    },
+    "validator_construction_warm": {
+      "cerberus": 0.011225801400723868,
+      "ferberus": 0.004348464717073718
+    },
+    "validator_construction_small": {
+      "cerberus": 0.006575906411265297,
+      "ferberus": 0.002276720163443278
+    },
+    "custom_rules": {
+      "cerberus": 0.12420791799377184,
+      "ferberus": 0.003357151842958826
+    }
+  }
+}

@@ -4,8 +4,8 @@ GIL-release experiment (DESIGN.md §7): from which subject length does it pay
 to release the interpreter while the `regex` rule matches?
 
 For each length: time per validation in one thread with and without
-releasing, and the throughput of 4 threads (one validator each) relative to
-one thread.
+releasing, and the wall time 4 threads (one validator each) need for a fixed
+amount of work.
 """
 
 import sys
@@ -17,6 +17,7 @@ from ferberus import _core
 
 PATTERN = "(?:[a-z]+ )*[a-z]+"
 NEVER = 1 << 60
+THREADS = 4
 
 
 def per_call(validator, document, seconds=0.3):
@@ -28,43 +29,52 @@ def per_call(validator, document, seconds=0.3):
     return (time.perf_counter() - start) / count
 
 
-def throughput(threads, document, seconds=0.5):
-    counts = [0] * threads
-    stop = threading.Event()
+def wall_time(document, calls):
+    """Seconds until THREADS threads have validated `calls` documents each."""
+    barrier = threading.Barrier(THREADS + 1)
 
-    def work(index):
+    def work():
         validator = ferberus.Validator({"s": {"regex": PATTERN}})
-        while not stop.is_set():
-            for _ in range(20):
-                validator.validate(document)
-            counts[index] += 20
+        validator.validate(document)
+        barrier.wait()
+        for _ in range(calls):
+            validator.validate(document)
 
-    workers = [threading.Thread(target=work, args=(i,)) for i in range(threads)]
+    workers = [threading.Thread(target=work) for _ in range(THREADS)]
     for worker in workers:
         worker.start()
-    time.sleep(seconds)
-    stop.set()
+    barrier.wait()
+    start = time.perf_counter()
     for worker in workers:
         worker.join()
-    return sum(counts) / seconds
+    return time.perf_counter() - start
 
 
 gil = getattr(sys, "_is_gil_enabled", lambda: True)()
 print("GIL enabled: %s" % gil)
 print(
-    "%8s | %12s %12s | %s" % ("length", "held (us)", "released", "4 threads vs 1: held / released")
+    "%8s | %-23s | %-27s | %s"
+    % ("length", "1 thread, us per call", "%d threads, us per call" % THREADS, "gain")
 )
-for length in (16, 64, 256, 1024, 4096, 16384, 65536):
+print("%8s | %10s %12s | %12s %14s |" % ("", "held", "released", "held", "released"))
+for length in (16, 64, 256, 1024, 2048, 4096, 16384, 65536):
     document = {"s": ("word " * (length // 5 + 1))[: length - 1] + "x"}
     validator = ferberus.Validator({"s": {"regex": PATTERN}})
     assert validator.validate(document)
-    row = []
+    single, multi = [], []
     for threshold in (NEVER, 0):
         _core.set_regex_detach_threshold(threshold)
-        row.append(
-            (per_call(validator, document), throughput(4, document) / throughput(1, document))
-        )
+        single.append(per_call(validator, document))
+        calls = max(200, int(0.4 / single[-1]))
+        multi.append(min(wall_time(document, calls) for _ in range(3)) / (calls * THREADS))
     print(
-        "%8d | %12.3f %12.3f | %5.2fx / %5.2fx"
-        % (length, row[0][0] * 1e6, row[1][0] * 1e6, row[0][1], row[1][1])
+        "%8d | %10.3f %12.3f | %12.3f %14.3f | %5.2fx"
+        % (
+            length,
+            single[0] * 1e6,
+            single[1] * 1e6,
+            multi[0] * 1e6,
+            multi[1] * 1e6,
+            multi[0] / multi[1],
+        )
     )

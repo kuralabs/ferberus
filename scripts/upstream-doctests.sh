@@ -5,6 +5,8 @@ set -euo pipefail
 UPSTREAM="${CERBERUS_CHECKOUT:-/opt/cerberus}"
 work="$(mktemp -d /tmp/cerberus-docs.XXXXXX)"
 cp -r "$UPSTREAM/docs" "$work/docs"
+# docs/includes/generate.py reads error definitions from the source tree
+cp -r "$UPSTREAM/cerberus" "$work/cerberus"
 cd "$work/docs"
 python - "$@" <<'PY'
 import sys
