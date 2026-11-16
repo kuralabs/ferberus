@@ -1,0 +1,5 @@
+# Only for the default (3.14) venv: runs the doctests of Cerberus'
+# documentation against ferberus (scripts/upstream-doctests.sh).
+sphinx==9.2.0
+furo==2025.12.19
+PyYAML==6.0.3

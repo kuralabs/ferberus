@@ -37,5 +37,11 @@ case "${1:-}" in
     down) docker rm -f "$NAME" >/dev/null ;;
     digest) docker image inspect --format '{{.Id}}' "$IMAGE" ;;
     "") echo "usage: ./dev build|up|down|digest|<command...>" >&2; exit 2 ;;
-    *) up; exec docker exec -w /workspaces/ferberus "$NAME" "$@" ;;
+    *)
+        up
+        exec docker exec -w /workspaces/ferberus \
+            -e FERBERUS_IMAGE_DIGEST="$(docker inspect --format '{{.Image}}' "$NAME")" \
+            -e HYPOTHESIS_PROFILE -e HYPOTHESIS_MAX_EXAMPLES \
+            "$NAME" "$@"
+        ;;
 esac

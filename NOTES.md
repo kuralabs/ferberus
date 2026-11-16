@@ -58,20 +58,46 @@ Image facts:
 - **D1 – supported interpreters.** CPython 3.9–3.15, plus free-threaded
   3.14t/3.15t. Cerberus declares `>=3.7` and tests 3.8–3.14 + PyPy. PyO3 0.30
   requires CPython >= 3.9, so 3.7/3.8 cannot be supported; PyPy is out of
-  scope for now (see Q2).
+  scope for now (see Q2). 3.14t as the floor for free-threaded builds was
+  confirmed by Carlos on 2026-11-16 (PyO3 0.30 rejects 3.13t; verified with
+  our own crate).
 - **D2 – documents are read as Python objects, not converted.** See DESIGN.md.
 - **D3 – the Python layer is a port of Cerberus' own modules** (ISC, attributed
   in `LICENSE.cerberus`); it is the semantic reference inside ferberus and the
   fallback engine. The Rust engine takes over whenever it can prove
   equivalence. See DESIGN.md.
 
+- **D4 – no abi3.** The hot path uses `PyDict_Next`, `PyList_GET_ITEM`,
+  `PyFloat_AS_DOUBLE`, type pointers and `PyObject_GenericGetDict`; wheels
+  are built per interpreter version.
+- **D5 – regex.** `regex` crate fast path for a translated subset + Python
+  `re` for everything else; no `fancy-regex` (DESIGN.md §5).
+- **D6 – child validators only where Python needs them** (DESIGN.md §2.2);
+  the resulting deviation (how often a subclass' `__init__` runs) is listed
+  in COMPATIBILITY.md.
+- **D7 – no native method for `Validator.validate`.** Binding the entry
+  point as a C-level method would save ~0.3 µs per call but changes what
+  introspection sees (`__code__`, signatures, `mock.patch(autospec=True)`).
+  The methods stay Python functions that call into the core.
+- **D8 – commits.** Work is committed on branch `engine` (allowed by Carlos
+  on 2026-11-16).
+
+## Ideas not pursued yet
+
+- **Dict watchers for the mutation guard** (CPython >= 3.12,
+  `PyDict_Watch`): would turn the per-call guard check (~10 % of a small
+  validation) into an epoch comparison plus the checks of the few lists and
+  sets in a schema.
+- **Schema validation in Rust.** Validator construction is 2.6–2.9× faster
+  (native `mapping_hash`, lazy schema validator), schema validation itself
+  2.3× (the schema validator's hooks are still Python). A native
+  implementation of `SchemaValidatorMixin` would have to reproduce the
+  exact error dicts of `SchemaError`.
+- **PyPy** (Q2).
+
 ## Open questions
 
-- **Q1 – 3.13t.** PROMPT.md asks for 3.13t and "PyO3 (latest)". PyO3 0.30
-  refuses to build for free-threaded CPython < 3.14 ("PyO3 does not support
-  the free-threaded build of CPython versions below 3.14"). Going with latest
-  PyO3 and 3.14t/3.15t; 3.13t would need PyO3 <= 0.2x. To be confirmed with
-  our own crate (the message above came from Hypothesis' build).
+- **Q1 – 3.13t.** *Resolved:* 3.14t is the floor (see D1).
 - **Q2 – PyPy.** Cerberus supports PyPy; PyO3 supports PyPy 7.3 (3.11+). The
   native engine relies on CPython C-API details. Not attempted yet.
 
@@ -98,6 +124,8 @@ Speedups = `benches/run.py`, CPython 3.14.10, vs real Cerberus on this machine.
 | 3–4 | Native engine: all built-in validation and normalization rules, native frames, delegation of unsupported sub-schemas | 246/246 | small flat docs 103×, list of dicts 51×, normalization 73×, `*of` 50× |
 | 5a | Hooks on the root validator (custom rules, `check_with`, named coercers/setters, legacy type methods), registry references, mutation guard | 246/246 | custom rules 7.9×, upstream benchmark 1: 4.3× |
 | 5b | Frames with real child validators for hooks at nested levels | 246/246 | custom rules 16.7×, upstream benchmark 1: 14×, benchmark 2: 81× |
+| 6 | Differential fuzzing: 5 properties × 2000 examples clean on every interpreter; long sessions, see below | 246/246 | – |
+| 7 | Performance work: whole call in Rust, native `errors` rendering, regex fast path, natively assembled child validators, child/schema validators in the engine, native `mapping_hash` | 246/246 | see BENCHMARKS.md |
 
 ### Discrepancies found by the differential fuzzer (all fixed, all are upstream quirks)
 
@@ -119,3 +147,23 @@ Speedups = `benches/run.py`, CPython 3.14.10, vs real Cerberus on this machine.
 6. Expanding a schema replaces the lists of `*of`/`items` rules with new,
    equal lists — on every normalization. The mutation guard treats a
    replaced list with identical members as unchanged.
+7. In a field whose rules queue lives on the validator (because of hooks),
+   `empty` drops rules before it files its error; if filing raises, the
+   rules stay dropped.
+8. `BasicErrorHandler` formats a deep copy of each error, and a deep-copied
+   set can iterate in another order than the original: the text of
+   `missing members {...}` depends on it.
+9. The normalized value of a container field is assigned *before* the
+   errors of its child validator are filed; if filing raises, the document
+   keeps the new value.
+10. `KeyError(None)` (renaming a field named `None` twice) has the message
+    `'None'`; an exception created from a bare `None` argument has none.
+11. (Found by the gap tests.) An instance attribute shadowing a rule method
+    went unnoticed if the instance had not validated anything yet: the
+    count of instance attributes then matched the usual one.
+
+### Long fuzzing sessions
+
+| Date | Build | Session | Result |
+| --- | --- | --- | --- |
+| 2026-11-16 | before commit `3da3b97` | 100 000 examples/property requested, cut off after 1 h | findings 8 and 9 |

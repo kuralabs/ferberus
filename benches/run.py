@@ -115,7 +115,7 @@ def main():
         }
         os.makedirs(os.path.dirname(os.path.abspath(args.json)), exist_ok=True)
         with open(args.json, "w") as f:
-            json.dump({"meta": meta, "results": results}, f, indent=2, sort_keys=True)
+            json.dump({"meta": meta, "results": results}, f, indent=2)
 
 
 if __name__ == "__main__":

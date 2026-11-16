@@ -251,3 +251,51 @@ pub fn has_plain_paths(error: &Bound<'_, PyAny>) -> PyResult<bool> {
     }
     Ok(true)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn order(a: &str, b: &str) -> Option<Ordering> {
+        Python::initialize();
+        Python::attach(|py| {
+            let a = py.eval(&std::ffi::CString::new(a).unwrap(), None, None).unwrap();
+            let b = py.eval(&std::ffi::CString::new(b).unwrap(), None, None).unwrap();
+            match compare_paths(&a, &b).unwrap() {
+                PathOrder::Strict(order) => Some(order),
+                PathOrder::Unclear => None,
+            }
+        })
+    }
+
+    #[test]
+    fn plain_paths_have_a_strict_order() {
+        assert_eq!(order("('a',)", "('b',)"), Some(Ordering::Less));
+        assert_eq!(order("('b', 'x')", "('a', 'y')"), Some(Ordering::Greater));
+        assert_eq!(order("('a',)", "('a', 'type')"), Some(Ordering::Less));
+        assert_eq!(order("('a', 2)", "('a', 10)"), Some(Ordering::Less));
+        assert_eq!(order("('a', 'é')", "('a', 'z')"), Some(Ordering::Greater));
+        assert_eq!(order("()", "('a',)"), Some(Ordering::Less));
+    }
+
+    #[test]
+    fn everything_else_is_left_to_python() {
+        // equal paths: compare_paths_lt says "less" both ways
+        assert_eq!(order("('a', 1)", "('a', 1)"), None);
+        // int and str at the same position: "less" both ways as well
+        assert_eq!(order("('a', 1)", "('a', 'x')"), None);
+        // elements that are neither exact str nor exact int
+        assert_eq!(order("(None,)", "('a',)"), None);
+        assert_eq!(order("(True,)", "(2,)"), None);
+        assert_eq!(order("(1.5,)", "(2,)"), None);
+        assert_eq!(order("(('t', 1),)", "(('t', 2),)"), None);
+        assert_eq!(order("(2 ** 80,)", "(1,)"), None);
+        // the "__require_all__" schema path is a str, not a tuple
+        assert_eq!(order("'__require_all__'", "('a',)"), None);
+    }
+
+    #[test]
+    fn differences_before_odd_elements_decide() {
+        assert_eq!(order("('a', None)", "('b', None)"), Some(Ordering::Less));
+    }
+}

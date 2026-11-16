@@ -15,8 +15,8 @@
 //! * `$` is only accepted as the last element of a top-level alternative and
 //!   becomes `\n?\z`; `^`/`\A` become `\A`, `\Z` becomes `\z`;
 //! * rejected: back-references, look-around, conditionals, atomic groups,
-//!   possessive quantifiers, comments, flags other than leading `i`/`s`/`a`/
-//!   `u`, octal and Unicode escapes, `{` that is not a quantifier, constructs
+//!   possessive quantifiers, comments, flags other than leading `i`/`s`/`u`,
+//!   `\B`, octal and Unicode escapes, `{` that is not a quantifier, constructs
 //!   for which Python warns, and repetition of groups that can match the
 //!   empty string (where `sre`'s loop guards are not obviously regular).
 //!
@@ -155,17 +155,14 @@ impl<'a> Translator<'a> {
                 return Err(Unsupported);
             };
             let flags = &self.input[self.pos + 2..self.pos + end];
-            if flags.is_empty() || !flags.iter().all(|c| b"isau".contains(c)) {
+            // (not `a`: in ASCII mode `\s` loses the separators 0x1c-0x1f)
+            if flags.is_empty() || !flags.iter().all(|c| b"isu".contains(c)) {
                 // not a flag group (or flags that change the semantics)
                 return if flags.iter().all(|c| c.is_ascii_alphabetic()) && !flags.is_empty() {
                     Err(Unsupported)
                 } else {
                     Ok(())
                 };
-            }
-            // 'a' and 'u' are mutually exclusive in Python
-            if flags.contains(&b'a') && flags.contains(&b'u') {
-                return Err(Unsupported);
             }
             self.ignore_case |= flags.contains(&b'i');
             self.dot_all |= flags.contains(&b's');
@@ -314,10 +311,9 @@ impl<'a> Translator<'a> {
                 self.out.push_str("\\b");
                 return Ok((true, false));
             }
-            b'B' => {
-                self.out.push_str("\\B");
-                return Ok((true, false));
-            }
+            // `\B` against an empty subject depends on the Python version
+            // (it only matches since 3.14)
+            b'B' => return Err(Unsupported),
             b'd' => Set::digits(),
             b'D' => Set::digits().negate(),
             b'w' => Set::word(),
@@ -618,6 +614,8 @@ mod tests {
             "[z-a]",
             r"(?P<n>a)(?P<n>b)",
             "(?#comment)a",
+            r"a\B",
+            r"(?a)\s",
         ] {
             assert_eq!(translate(pattern), Err(Unsupported), "{pattern}");
         }

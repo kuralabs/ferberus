@@ -18,7 +18,9 @@ for stage in "${stages[@]}"; do
             ruff format --check .
             ;;
         rust)
-            cargo nextest run --workspace --release --no-tests=pass
+            # the test binaries embed the interpreter of the 3.14 venv
+            LD_LIBRARY_PATH="$(python -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')" \
+                cargo nextest run --workspace --release --no-tests=pass
             scripts/fuzz.sh "${FERBERUS_FUZZ_SECONDS:-30}" >/dev/null
             ;;
         python)

@@ -86,7 +86,8 @@ RUN curl -sSfL "https://github.com/cargo-bins/cargo-binstall/releases/download/v
     && rm -rf ${CARGO_HOME}/registry/* ${CARGO_HOME}/git/* /tmp/cargo-*
 
 # CPython interpreters (GIL and free-threaded builds), managed by uv.
-ARG PYTHON_VERSIONS="3.9 3.10 3.11 3.12 3.13 3.14 3.15 3.13t 3.14t 3.15t"
+# Free-threaded builds from 3.14: PyO3 does not support 3.13t (NOTES.md, D1).
+ARG PYTHON_VERSIONS="3.9 3.10 3.11 3.12 3.13 3.14 3.15 3.14t 3.15t"
 RUN uv python install ${PYTHON_VERSIONS}
 
 # Reference implementation + upstream test suite, at the pinned commit.
@@ -103,11 +104,11 @@ RUN set -eux; for v in ${PYTHON_VERSIONS}; do \
         uv venv --python "$v" "/opt/venvs/$v"; \
         case "$v" in \
             3.9|3.10) req=legacy ;; \
-            3.13t) req=minimal ;; \
             *) req=dev ;; \
         esac; \
         uv pip install --python "/opt/venvs/$v/bin/python" -r "/opt/venvs/requirements-$req.txt"; \
     done; \
+    uv pip install --python /opt/venvs/3.14/bin/python -r /opt/venvs/requirements-docs.txt; \
     rm -rf ${UV_CACHE_DIR}/*
 
 WORKDIR /workspaces/ferberus
