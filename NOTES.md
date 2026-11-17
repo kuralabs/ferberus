@@ -91,7 +91,9 @@ Image facts:
   performance ideas are post-1.0 (Carlos, 2026-11-16); the gates for 1.0.0
   are in ROADMAP.md; all passed, `1.0.0` released on 2026-11-17.
   Work moved from branch `engine` to `main`. 1.0.0 is published to PyPI manually by
-  Carlos; publishing from CI is a post-1.0 roadmap item.
+  Carlos; publishing from CI is a post-1.0 roadmap item. Published on
+  2026-11-17 (https://pypi.org/project/ferberus/1.0.0/, 64 files); the
+  upstream suite passes against the PyPI wheels on all nine interpreters.
 
 ## Ideas not pursued yet
 

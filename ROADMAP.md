@@ -19,7 +19,11 @@ number.
 
 **Publishing 1.0.0** is manual: KuraLabs uploads the wheels and the sdist
 that the `Wheels` workflow builds for the `v1.0.0` tag (the workflow's
-artifacts) to PyPI.
+artifacts) to PyPI. Done on 2026-11-17:
+<https://pypi.org/project/ferberus/1.0.0/>, 63 wheels and the sdist. The
+upstream suite passes (246 passed, 1 skipped) against the wheels installed
+from PyPI (`pip install --only-binary=:all: ferberus==1.0.0`) on all nine
+interpreters in the dev container.
 
 ## After 1.0.0
 
