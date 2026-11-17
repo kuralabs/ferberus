@@ -200,3 +200,4 @@ Speedups = `benches/run.py`, CPython 3.14.10, vs real Cerberus on this machine.
 | 2026-11-16 | `1.0.0-rc.1` (`4a6b384`, generator fix `HEAD`) | 20 000 examples for each of the 5 differential and 3 regex properties, CPython 3.14 | clean (two interruptions were bugs of the test generator on junk schemas, fixed) |
 | 2026-11-17 | `1.0.0-rc.1` (`72baca1`) | second session, 20 000 examples for each of the 8 properties, CPython 3.14 | clean (40 000 per property in total) |
 | 2026-11-17 | `1.0.0-rc.1` (`72baca1`) | third session, 20 000 examples for each of the 8 properties, CPython 3.14 | clean (60 000 per property in total) |
+| 2026-11-17 | `1.0.0-rc.1` (`aa3d2f9`) | fourth session, 20 000 examples for each of the 8 properties, CPython 3.14 | clean (80 000 per property in total) |
