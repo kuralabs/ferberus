@@ -28,6 +28,10 @@ jobs:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux }}
           args: --release --strip --out dist --interpreter ${{ env.INTERPRETERS }}
+      # cp39/cp310 on musl: see scripts/musl-suffix.py. dist/ belongs to root
+      # (maturin-action builds in a container).
+      - if: startsWith(matrix.manylinux, 'musllinux')
+        run: sudo python3 scripts/musl-suffix.py dist/*.whl
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-linux-${{ matrix.target }}-${{ matrix.manylinux }}
@@ -95,7 +99,9 @@ jobs:
           path: dist
 
   # Every wheel must pass the upstream suite before anything is published.
-  # (The musllinux wheels are built but not run here.)
+  # The musllinux wheels run in Alpine containers: all interpreters as uv
+  # installs them (python-build-standalone), plus the official python:3.9
+  # and 3.10 images, whose extension suffix differs (scripts/musl-suffix.py).
   test:
     needs: [linux, macos, windows]
     runs-on: ${{ matrix.runner }}
@@ -108,6 +114,8 @@ jobs:
           - { runner: macos-latest, wheels: wheels-macos-aarch64 }
           - { runner: macos-15-intel, wheels: wheels-macos-x86_64 }
           - { runner: windows-latest, wheels: wheels-windows-x64 }
+          - { runner: ubuntu-latest, wheels: wheels-linux-x86_64-musllinux_1_2, alpine: true }
+          - { runner: ubuntu-24.04-arm, wheels: wheels-linux-aarch64-musllinux_1_2, alpine: true }
     steps:
       - uses: actions/checkout@v7
       - uses: actions/checkout@v7
@@ -120,22 +128,26 @@ jobs:
           name: ${{ matrix.wheels }}
           path: dist
       - uses: astral-sh/setup-uv@v6
+        if: ${{ !matrix.alpine }}
       - name: Upstream suite against the built wheels
+        if: ${{ !matrix.alpine }}
         shell: bash
+        run: scripts/test-wheels.sh dist cerberus-upstream
+      - name: Upstream suite against the built wheels (Alpine)
+        if: ${{ matrix.alpine }}
         run: |
-          upstream="$PWD/cerberus-upstream"
-          count=$(ls dist/*.whl | wc -l)
-          [ "$count" -eq 9 ] || { echo "expected 9 wheels, found $count"; ls dist; exit 1; }
-          for v in $INTERPRETERS; do
-            echo "::group::CPython $v"
-            uv venv --python "$v" ".venv-$v"
-            python=".venv-$v/bin/python"
-            [ -x "$python" ] || python=".venv-$v/Scripts/python.exe"
-            uv pip install --python "$python" --no-index --find-links dist ferberus
-            uv pip install --python "$python" pytest
-            python="$PWD/$python"
-            (cd "$RUNNER_TEMP" && FERBERUS_UPSTREAM_PACKAGE="$upstream/cerberus" \
-              "$python" -m pytest -p ferberus.compat -p no:cacheprovider \
-              --rootdir "$upstream" -c "$upstream/pyproject.toml" "$upstream/cerberus/tests" -q)
+          docker run --rm -e INTERPRETERS -v "$PWD:/w" -w /w \
+            ghcr.io/astral-sh/uv:0.13.8-alpine \
+            sh -c 'apk add -q bash && scripts/test-wheels.sh dist cerberus-upstream'
+          for v in 3.9 3.10; do
+            echo "::group::python:$v-alpine"
+            docker run --rm -v "$PWD:/w:ro" python:$v-alpine sh -c '
+              set -e
+              pip -q install --root-user-action=ignore --no-index --find-links /w/dist ferberus
+              pip -q install --root-user-action=ignore pytest
+              cd /tmp && FERBERUS_UPSTREAM_PACKAGE=/w/cerberus-upstream/cerberus \
+                python -m pytest -p ferberus.compat -p no:cacheprovider \
+                --rootdir /w/cerberus-upstream -c /w/cerberus-upstream/pyproject.toml \
+                /w/cerberus-upstream/cerberus/tests -q'
             echo "::endgroup::"
           done

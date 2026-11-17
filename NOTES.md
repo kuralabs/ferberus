@@ -33,6 +33,7 @@ installed on the host).
 | 2026-11-16 | 3.9/3.10 venvs use `requirements-legacy.txt` (pytest 8.4.2, hypothesis 6.141.1); 3.13t uses `requirements-minimal.txt` (no Hypothesis). | Current pytest needs >= 3.10, Hypothesis >= 3.11; Hypothesis' native extension does not build for free-threaded 3.13. |
 | 2026-11-16 | 3.13t interpreter and `requirements-minimal.txt` removed. | PyO3 0.30 does not build for free-threaded 3.13; 3.14t is the agreed floor (D1). |
 | 2026-11-16 | `requirements-docs.txt` (sphinx 9.2.0, furo 2025.12.19, PyYAML 6.0.3) installed into the 3.14 venv. | `scripts/upstream-doctests.sh`: the 287 doctests of Cerberus' documentation run against ferberus (upstream's `tox -e doctest`). |
+| 2026-11-17 | No image change. Throwaway containers on the host's Docker (`docker run --rm`): `ghcr.io/astral-sh/uv:0.13.8-alpine`, `ghcr.io/astral-sh/uv:0.13.8-debian`, `python:3.9/3.10/3.11-alpine`. Nothing installed on the host. | Testing the musllinux wheels the way the Alpine legs of `wheels.yml` do (the dev image is glibc). |
 
 After the last change the image was rebuilt from scratch (`./dev build
 --no-cache`, digest `sha256:7fa2be0f488c…8da5`), the container recreated and
@@ -188,6 +189,17 @@ Speedups = `benches/run.py`, CPython 3.14.10, vs real Cerberus on this machine.
   builds) and only the Linux x86_64 wheels were tested → interpreters are
   passed explicitly, the test job runs the upstream suite on every platform
   and insists on nine wheels. (3) Green.
+- musllinux (2026-11-17, found by the new Alpine legs, tried locally on the
+  1.0.0 wheels from PyPI): the cp39 and cp310 musl wheels name the extension
+  `_core.cpython-3X-<arch>-linux-gnu.so`. That is what CPython < 3.11 itself
+  uses on musl (official `python:3.9/3.10-alpine` images import it fine), but
+  python-build-standalone, i.e. every interpreter uv installs, patches those
+  versions to `linux-musl` and then fails with `cannot import name '_core'`.
+  Fix: `scripts/musl-suffix.py` renames the extension to the bare `_core.so`,
+  which every CPython accepts, and rewrites RECORD. Verified: upstream suite
+  green on all nine uv-managed interpreters in Alpine and on the official
+  3.9/3.10/3.11 Alpine images. The 1.0.0 wheels on PyPI keep the bug until
+  the next release; cp311+ musl wheels and all other platforms are fine.
 - Runs are watched and dispatched through the REST API with a token KuraLabs S.R.L.
   provided for the session (not stored anywhere in the repository). The token was
   revoked on 2026-11-17; watching runs from now on is limited to the

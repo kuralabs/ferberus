@@ -82,9 +82,8 @@ Wheels on PyPI:
 Each of them is built for CPython 3.9, 3.10, 3.11, 3.12, 3.13, 3.14 and 3.15,
 plus the free-threaded builds 3.14t and 3.15t.
 
-Before every release, the Cerberus test suite is run against the built wheels
-on Linux, macOS and Windows. The musl wheels are built, but not yet tested
-in CI.
+Before every release, the Cerberus test suite is run against every built
+wheel: on Linux (glibc and, in Alpine containers, musl), macOS and Windows.
 
 On any other platform, pip builds ferberus from the source distribution,
 which needs Rust 1.100 or newer. PyPy is not supported.
