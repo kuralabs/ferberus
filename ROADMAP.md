@@ -52,10 +52,11 @@ Performance, in the order of expected benefit:
 
 Release engineering:
 
-6. **Publish from CI.** A job in the `Wheels` workflow that uploads to PyPI
-   when a `v*` tag is pushed, after the `test` job passed — with PyPI
-   trusted publishing (OIDC, no stored token) and a protected `pypi`
-   environment that requires approval.
+6. **Publish from CI.** In place since 2026-11-17, first used by the next
+   release: the `publish` job of the `Wheels` workflow uploads to PyPI
+   when a `v*` tag is pushed, after every `test` leg passed, with PyPI
+   Trusted Publishing (OIDC, no stored token). The `pypi` environment only
+   deploys `v*` tags; it has no required reviewers yet.
 
 Scope:
 

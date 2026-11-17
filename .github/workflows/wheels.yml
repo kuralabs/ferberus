@@ -151,3 +151,30 @@ jobs:
                 /w/cerberus-upstream/cerberus/tests -q'
             echo "::endgroup::"
           done
+
+  # Trusted Publishing (OIDC): PyPI accepts uploads from this workflow in the
+  # `pypi` environment, which only deploys `v*` tags. No secret is stored.
+  publish:
+    needs: [test, sdist]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/ferberus/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Check the tag and the files
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          ls dist
+          [ "$(ls dist/*.whl | wc -l)" -eq 63 ] || { echo "expected 63 wheels"; exit 1; }
+          [ -f "dist/ferberus-$version.tar.gz" ] || { echo "no sdist for $version"; exit 1; }
+          bad=$(ls dist | grep -v -- "^ferberus-$version[-.]" || true)
+          [ -z "$bad" ] || { echo "not version $version: $bad"; exit 1; }
+      - uses: pypa/gh-action-pypi-publish@release/v1

@@ -20,6 +20,16 @@ edited. A behavior that differs from Cerberus is a bug unless it is listed
 in [COMPATIBILITY.md](COMPATIBILITY.md). Performance changes are justified by
 measurements ([BENCHMARKS.md](BENCHMARKS.md)).
 
+## Releasing
+
+1. Set `version` in `Cargo.toml` (the Python package takes it from there)
+   and commit.
+2. Tag and push: `git tag -a vX.Y.Z -m "ferberus X.Y.Z"` and
+   `git push origin main vX.Y.Z`.
+3. The `Wheels` workflow builds 63 wheels and the sdist, runs the upstream
+   suite against every wheel, checks that all files carry the tag's version
+   and publishes them to PyPI (Trusted Publishing, environment `pypi`).
+
 ## Inspecting what the engine did
 
 ```python
