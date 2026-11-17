@@ -90,7 +90,8 @@ Image facts:
 - **D9 – release.** Copyright holder is KuraLabs S.R.L. The remaining
   performance ideas are post-1.0 (Carlos, 2026-11-16); the gates for 1.0.0
   are in ROADMAP.md, the version is `1.0.0-rc.1` until they are passed.
-  Work moved from branch `engine` to `main`.
+  Work moved from branch `engine` to `main`. 1.0.0 is published to PyPI manually by
+  Carlos; publishing from CI is a post-1.0 roadmap item.
 
 ## Ideas not pursued yet
 
@@ -186,7 +187,9 @@ Speedups = `benches/run.py`, CPython 3.14.10, vs real Cerberus on this machine.
   passed explicitly, the test job runs the upstream suite on every platform
   and insists on nine wheels. (3) Green.
 - Runs are watched and dispatched through the REST API with a token Carlos
-  provided for the session (not stored anywhere in the repository).
+  provided for the session (not stored anywhere in the repository). The token was
+  revoked on 2026-11-17; watching runs from now on is limited to the
+  unauthenticated API (status, no logs).
 
 ### Long fuzzing sessions
 

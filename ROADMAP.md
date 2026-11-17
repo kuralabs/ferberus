@@ -17,6 +17,10 @@ covers whatever the native engine declines. The current version is
 No further engine work is planned before 1.0.0; only fixes for what the
 gates turn up.
 
+**Publishing 1.0.0** is manual: KuraLabs uploads the wheels and the sdist
+that the `Wheels` workflow builds for the `v1.0.0` tag (the workflow's
+artifacts) to PyPI.
+
 ## After 1.0.0
 
 Performance, in the order of expected benefit:
@@ -37,13 +41,20 @@ Performance, in the order of expected benefit:
 5. **Hooks**: cheaper calls into `check_with` functions and rule methods
    (prepared method lookups, vectorcall with keyword-free signatures).
 
+Release engineering:
+
+6. **Publish from CI.** A job in the `Wheels` workflow that uploads to PyPI
+   when a `v*` tag is pushed, after the `test` job passed — with PyPI
+   trusted publishing (OIDC, no stored token) and a protected `pypi`
+   environment that requires approval.
+
 Scope:
 
-6. **PyPy.** Cerberus supports it; the native engine relies on CPython's
+7. **PyPy.** Cerberus supports it; the native engine relies on CPython's
    C-API. Options: ship the reference implementation alone for PyPy, or a
    cpyext build.
-7. **abi3 wheels** as an alternative build (slower, one wheel per
+8. **abi3 wheels** as an alternative build (slower, one wheel per
    platform), if the number of wheels becomes a burden.
-8. **Following upstream.** A procedure for moving the pin to a newer
+9. **Following upstream.** A procedure for moving the pin to a newer
    Cerberus commit: re-port the Python layer, run both suites and the
    fuzzer.
