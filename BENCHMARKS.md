@@ -189,8 +189,9 @@ process short documents at 1.9× and long ones at 3.9× the rate of one.
 
 CI runs `benches/run.py` and `benches/check_regression.py`, which compares
 the *speedup over Cerberus measured in the same run* per workload with
-`benches/results/baseline.json` and fails if one falls below 70 % of the
-recorded value. Comparing ratios instead of times keeps the check meaningful
+`benches/results/baseline.json` and fails if one falls below 60 % of the
+recorded value (GitHub's runners reach 75–105 % of the baseline machine's
+speedups). Comparing ratios instead of times keeps the check meaningful
 on runners with different hardware. Update the baseline deliberately
 (`cp out.json benches/results/baseline.json`) when a change is meant to move
 the numbers.

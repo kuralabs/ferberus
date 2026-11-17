@@ -41,7 +41,8 @@ for stage in "${stages[@]}"; do
         bench)
             scripts/develop.sh 3.14
             python benches/run.py --rounds 5 --json /tmp/bench.json
-            python benches/check_regression.py /tmp/bench.json benches/results/baseline.json
+            # (GitHub's runners reach 75-105 % of the baseline machine's speedups)
+            python benches/check_regression.py --tolerance 0.6 /tmp/bench.json benches/results/baseline.json
             ;;
         *)
             echo "unknown stage: $stage" >&2

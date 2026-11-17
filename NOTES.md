@@ -174,6 +174,20 @@ Speedups = `benches/run.py`, CPython 3.14.10, vs real Cerberus on this machine.
     went unnoticed if the instance had not validated anything yet: the
     count of instance attributes then matched the usual one.
 
+### GitHub workflows (2026-11-17)
+
+- `CI`: green on the first complete run (image build, lint, Rust tests and
+  fuzz smoke test, all nine interpreters, performance check; 35 min).
+- `Wheels`: three runs. (1) `macos-13` never left the queue and `macos-14`
+  was cancelled before it started → `macos-15-intel` / `macos-latest`.
+  (2) All green, but the Windows job had silently built only five of nine
+  wheels (`--find-interpreter` missed 3.9, 3.10 and the free-threaded
+  builds) and only the Linux x86_64 wheels were tested → interpreters are
+  passed explicitly, the test job runs the upstream suite on every platform
+  and insists on nine wheels. (3) Green.
+- Runs are watched and dispatched through the REST API with a token Carlos
+  provided for the session (not stored anywhere in the repository).
+
 ### Long fuzzing sessions
 
 | Date | Build | Session | Result |
