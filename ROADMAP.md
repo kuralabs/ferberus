@@ -4,18 +4,18 @@
 
 ferberus is feature-complete with respect to Cerberus 1.3.x: every rule,
 extension point and public class is there, and the reference implementation
-covers whatever the native engine declines. The current version is
-`1.0.0-rc.1`. It becomes `1.0.0` when these gates are passed:
+covers whatever the native engine declines. `1.0.0-rc.1` became `1.0.0`
+on 2026-11-17, after it had passed these gates:
 
 | Gate | State |
 | --- | --- |
 | Upstream suite, documentation doctests and all tests green on every supported interpreter (`scripts/ci.sh`) | passed locally in the dev container on all nine interpreters (`1.0.0-rc.1`) |
-| A long differential fuzzing session on the release candidate without findings (`scripts/soak.sh 100000`) | 80 000 examples per property clean on `1.0.0-rc.1` (four sessions); 20 000 more to reach 100 000. Every finding becomes a regression test and restarts the gate |
+| A long differential fuzzing session on the release candidate without findings (`scripts/soak.sh 100000`) | passed: 100 000 examples per property clean on `1.0.0-rc.1` (five sessions of 20 000) |
 | `CI` workflow green on GitHub | passed (run 44032698976, 35 min) |
 | `Wheels` workflow: manylinux and musllinux (x86_64, aarch64), macOS (x86_64, arm64), Windows; the wheels pass the upstream suite | passed (run 44037196201): nine wheels per platform; the upstream suite passes on every interpreter on Linux x86_64 and aarch64, macOS arm64 and x86_64, and Windows. The musllinux wheels are built but not run |
 
-No further engine work is planned before 1.0.0; only fixes for what the
-gates turn up.
+The source of `1.0.0` is identical to `1.0.0-rc.1` apart from the version
+number.
 
 **Publishing 1.0.0** is manual: KuraLabs uploads the wheels and the sdist
 that the `Wheels` workflow builds for the `v1.0.0` tag (the workflow's

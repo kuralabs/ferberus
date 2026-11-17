@@ -89,7 +89,7 @@ Image facts:
 
 - **D9 – release.** Copyright holder is KuraLabs S.R.L. The remaining
   performance ideas are post-1.0 (Carlos, 2026-11-16); the gates for 1.0.0
-  are in ROADMAP.md, the version is `1.0.0-rc.1` until they are passed.
+  are in ROADMAP.md; all passed, `1.0.0` released on 2026-11-17.
   Work moved from branch `engine` to `main`. 1.0.0 is published to PyPI manually by
   Carlos; publishing from CI is a post-1.0 roadmap item.
 
@@ -201,3 +201,4 @@ Speedups = `benches/run.py`, CPython 3.14.10, vs real Cerberus on this machine.
 | 2026-11-17 | `1.0.0-rc.1` (`72baca1`) | second session, 20 000 examples for each of the 8 properties, CPython 3.14 | clean (40 000 per property in total) |
 | 2026-11-17 | `1.0.0-rc.1` (`72baca1`) | third session, 20 000 examples for each of the 8 properties, CPython 3.14 | clean (60 000 per property in total) |
 | 2026-11-17 | `1.0.0-rc.1` (`aa3d2f9`) | fourth session, 20 000 examples for each of the 8 properties, CPython 3.14 | clean (80 000 per property in total) |
+| 2026-11-17 | `1.0.0-rc.1` (`37df682`) | fifth session, 20 000 examples for each of the 8 properties, CPython 3.14 | clean (100 000 per property in total): fuzzing gate passed |
