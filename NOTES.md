@@ -200,6 +200,14 @@ Speedups = `benches/run.py`, CPython 3.14.10, vs real Cerberus on this machine.
   green on all nine uv-managed interpreters in Alpine and on the official
   3.9/3.10/3.11 Alpine images. The 1.0.0 wheels on PyPI keep the bug until
   the next release; cp311+ musl wheels and all other platforms are fine.
+- Annotations of the `v1.0.1` run (2026-11-17): two errors `Could not resolve
+  host: github.com` in the macOS Intel build were a transient DNS failure
+  while fetching the repository (the step retried, job and its test leg
+  green). The warnings were all the Node.js 20 deprecation, fixed by
+  `upload-artifact@v7`, `download-artifact@v8`, `setup-uv@v10.3.3` (no
+  major tags since v8: exact version), `setup-buildx-action@v4`,
+  `build-push-action@v7`. Runners are pinned to `ubuntu-24.04` rather than
+  `ubuntu-latest`, which moves to Ubuntu 26.
 - Runs are watched and dispatched through the REST API with a token KuraLabs S.R.L.
   provided for the session (not stored anywhere in the repository). The token was
   revoked on 2026-11-17; watching runs from now on is limited to the

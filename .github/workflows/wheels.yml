@@ -17,9 +17,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { runner: ubuntu-latest, target: x86_64, manylinux: "2_28" }
+          - { runner: ubuntu-24.04, target: x86_64, manylinux: "2_28" }
           - { runner: ubuntu-24.04-arm, target: aarch64, manylinux: "2_28" }
-          - { runner: ubuntu-latest, target: x86_64, manylinux: musllinux_1_2 }
+          - { runner: ubuntu-24.04, target: x86_64, manylinux: musllinux_1_2 }
           - { runner: ubuntu-24.04-arm, target: aarch64, manylinux: musllinux_1_2 }
     steps:
       - uses: actions/checkout@v7
@@ -32,7 +32,7 @@ jobs:
       # (maturin-action builds in a container).
       - if: startsWith(matrix.manylinux, 'musllinux')
         run: sudo python3 scripts/musl-suffix.py dist/*.whl
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-linux-${{ matrix.target }}-${{ matrix.manylinux }}
           path: dist
@@ -47,7 +47,7 @@ jobs:
           - { runner: macos-latest, target: aarch64 }
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v10.3.3
       - name: Install the interpreters
         shell: bash
         run: |
@@ -59,7 +59,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           args: --release --strip --out dist ${{ env.INTERPRETER_ARGS }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-macos-${{ matrix.target }}
           path: dist
@@ -68,7 +68,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v10.3.3
       - name: Install the interpreters
         shell: bash
         run: |
@@ -80,20 +80,20 @@ jobs:
         with:
           target: x64
           args: --release --strip --out dist ${{ env.INTERPRETER_ARGS }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-windows-x64
           path: dist
 
   sdist:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: PyO3/maturin-action@v1
         with:
           command: sdist
           args: --out dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sdist
           path: dist
@@ -109,12 +109,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { runner: ubuntu-latest, wheels: wheels-linux-x86_64-2_28 }
+          - { runner: ubuntu-24.04, wheels: wheels-linux-x86_64-2_28 }
           - { runner: ubuntu-24.04-arm, wheels: wheels-linux-aarch64-2_28 }
           - { runner: macos-latest, wheels: wheels-macos-aarch64 }
           - { runner: macos-15-intel, wheels: wheels-macos-x86_64 }
           - { runner: windows-latest, wheels: wheels-windows-x64 }
-          - { runner: ubuntu-latest, wheels: wheels-linux-x86_64-musllinux_1_2, alpine: true }
+          - { runner: ubuntu-24.04, wheels: wheels-linux-x86_64-musllinux_1_2, alpine: true }
           - { runner: ubuntu-24.04-arm, wheels: wheels-linux-aarch64-musllinux_1_2, alpine: true }
     steps:
       - uses: actions/checkout@v7
@@ -123,11 +123,11 @@ jobs:
           repository: pyeve/cerberus
           ref: 83f5dada76aa3179ef21b677a7f4235bf20c1566
           path: cerberus-upstream
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: ${{ matrix.wheels }}
           path: dist
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v10.3.3
         if: ${{ !matrix.alpine }}
       - name: Upstream suite against the built wheels
         if: ${{ !matrix.alpine }}
@@ -157,14 +157,14 @@ jobs:
   publish:
     needs: [test, sdist]
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: pypi
       url: https://pypi.org/project/ferberus/
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
