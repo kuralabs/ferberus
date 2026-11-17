@@ -28,7 +28,7 @@ interpreters in the dev container.
 **Known issue in 1.0.0:** the cp39 and cp310 musllinux wheels do not import
 on interpreters installed by uv (python-build-standalone); official CPython
 builds on Alpine are fine. Fixed on `main` (`scripts/musl-suffix.py`, see
-NOTES.md), shipped with the next release.
+NOTES.md) and released in 1.0.1, the first release published from CI.
 
 ## After 1.0.0
 
