@@ -3,6 +3,10 @@
 Render benchmark results (``benches/run.py --json``) as a Markdown table.
 
     python benches/report.py benches/results/<file>.json [more.json ...]
+    python benches/report.py --readme benches/results/<file>.json
+
+``--readme`` prints the short table of README.md: a few workloads, timed per
+document (or per validator) instead of per batch.
 """
 
 import json
@@ -26,6 +30,17 @@ DESCRIPTIONS = {
     "custom_rules": "500 documents, subclass with custom rule, checks, coercer",
 }
 
+# README table: workload -> (description, number of units per measured call).
+README = {
+    "small_flat_valid": ("Validate a small document (8 fields)", 1000),
+    "small_flat_invalid_errors": ("… invalid, 4 errors, reading `v.errors`", 1000),
+    "deep_nesting": ("Validate a document nested 8 levels deep", 200),
+    "normalization_heavy": ("Normalize a document (coerce, default, rename, purge)", 500),
+    "large_list_of_dicts": ("Validate a list of 1000 dicts", 1),
+    "custom_rules": ("Subclass with a custom rule, check and coercer", 500),
+    "validator_construction_small": ("Create a `Validator` (8-field schema)", 100),
+}
+
 
 def fmt(seconds):
     if seconds >= 1:
@@ -35,7 +50,29 @@ def fmt(seconds):
     return "%.1f µs" % (seconds * 1e6)
 
 
+def readme(path):
+    with open(path) as f:
+        data = json.load(f)
+    print("| Operation | Cerberus | ferberus | Speedup |")
+    print("| --- | ---: | ---: | ---: |")
+    for name, (description, units) in README.items():
+        row = data["results"][name]
+        speedup = row["cerberus"] / row["ferberus"]
+        print(
+            "| %s | %s | %s | **%s×** |"
+            % (
+                description,
+                fmt(row["cerberus"] / units),
+                fmt(row["ferberus"] / units),
+                ("%.0f" if speedup >= 10 else "%.1f") % speedup,
+            )
+        )
+
+
 def main():
+    if sys.argv[1:2] == ["--readme"]:
+        readme(sys.argv[2])
+        return
     for path in sys.argv[1:]:
         with open(path) as f:
             data = json.load(f)

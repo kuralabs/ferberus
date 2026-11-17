@@ -9,7 +9,7 @@ readme = "README.md"
 license = "ISC"
 license-files = ["LICENSE", "LICENSE.cerberus"]
 requires-python = ">=3.9"
-authors = [{ name = "Carlos Jenkins" }]
+authors = [{ name = "KuraLabs S.R.L." }]
 keywords = ["validation", "schema", "dictionaries", "documents", "normalization", "cerberus"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -29,6 +29,11 @@ classifiers = [
     "Programming Language :: Rust",
 ]
 dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/kuralabs/ferberus"
+Documentation = "https://github.com/kuralabs/ferberus#readme"
+Issues = "https://github.com/kuralabs/ferberus/issues"
 
 [tool.maturin]
 python-source = "python"

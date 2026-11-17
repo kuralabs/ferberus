@@ -14,7 +14,7 @@ are appended at the bottom of each chapter.
 
 `PROMPT.md` says "current `master`". Upstream `master` (`8765b31`, last commit
 2021-05-05) is an abandoned 2.0-dev branch with a different API that was never
-released. Carlos confirmed on 2026-11-16 that the target is **`1.3.x` HEAD**.
+released. KuraLabs S.R.L. confirmed on 2026-11-16 that the target is **`1.3.x` HEAD**.
 
 The SHA is pinned in `.devcontainer/Dockerfile` (`CERBERUS_SHA`); the image
 build fails if the checkout does not resolve to it. The checkout lives at
@@ -65,7 +65,7 @@ Image facts:
   3.14t/3.15t. Cerberus declares `>=3.7` and tests 3.8–3.14 + PyPy. PyO3 0.30
   requires CPython >= 3.9, so 3.7/3.8 cannot be supported; PyPy is out of
   scope for now (see Q2). 3.14t as the floor for free-threaded builds was
-  confirmed by Carlos on 2026-11-16 (PyO3 0.30 rejects 3.13t; verified with
+  confirmed by KuraLabs S.R.L. on 2026-11-16 (PyO3 0.30 rejects 3.13t; verified with
   our own crate).
 - **D2 – documents are read as Python objects, not converted.** See DESIGN.md.
 - **D3 – the Python layer is a port of Cerberus' own modules** (ISC, attributed
@@ -85,13 +85,13 @@ Image facts:
   point as a C-level method would save ~0.3 µs per call but changes what
   introspection sees (`__code__`, signatures, `mock.patch(autospec=True)`).
   The methods stay Python functions that call into the core.
-- **D8 – commits.** Committing is allowed (Carlos, 2026-11-16).
+- **D8 – commits.** Committing is allowed (KuraLabs S.R.L., 2026-11-16).
 
 - **D9 – release.** Copyright holder is KuraLabs S.R.L. The remaining
-  performance ideas are post-1.0 (Carlos, 2026-11-16); the gates for 1.0.0
+  performance ideas are post-1.0 (KuraLabs S.R.L., 2026-11-16); the gates for 1.0.0
   are in ROADMAP.md; all passed, `1.0.0` released on 2026-11-17.
   Work moved from branch `engine` to `main`. 1.0.0 is published to PyPI manually by
-  Carlos; publishing from CI is a post-1.0 roadmap item. Published on
+  KuraLabs S.R.L.; publishing from CI is a post-1.0 roadmap item. Published on
   2026-11-17 (https://pypi.org/project/ferberus/1.0.0/, 64 files); the
   upstream suite passes against the PyPI wheels on all nine interpreters.
 
@@ -188,7 +188,7 @@ Speedups = `benches/run.py`, CPython 3.14.10, vs real Cerberus on this machine.
   builds) and only the Linux x86_64 wheels were tested → interpreters are
   passed explicitly, the test job runs the upstream suite on every platform
   and insists on nine wheels. (3) Green.
-- Runs are watched and dispatched through the REST API with a token Carlos
+- Runs are watched and dispatched through the REST API with a token KuraLabs S.R.L.
   provided for the session (not stored anywhere in the repository). The token was
   revoked on 2026-11-17; watching runs from now on is limited to the
   unauthenticated API (status, no logs).

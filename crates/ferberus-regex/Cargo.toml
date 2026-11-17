@@ -5,6 +5,8 @@ edition = "2024"
 rust-version = "1.100"
 description = "Translates a subset of Python's regular expression syntax for the regex crate, preserving re.match semantics on ASCII."
 license = "ISC"
+authors = ["KuraLabs S.R.L."]
+repository = "https://github.com/kuralabs/ferberus"
 publish = false
 
 [dependencies]
