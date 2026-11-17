@@ -10,7 +10,7 @@ covers whatever the native engine declines. The current version is
 | Gate | State |
 | --- | --- |
 | Upstream suite, documentation doctests and all tests green on every supported interpreter (`scripts/ci.sh`) | passed locally in the dev container on all nine interpreters (`1.0.0-rc.1`) |
-| A long differential fuzzing session on the release candidate without findings (`scripts/soak.sh 100000`) | 40 000 examples per property clean on `1.0.0-rc.1` (two sessions); the full 100 000 still to run. Every finding becomes a regression test and restarts the gate |
+| A long differential fuzzing session on the release candidate without findings (`scripts/soak.sh 100000`) | 60 000 examples per property clean on `1.0.0-rc.1` (three sessions); 40 000 more to reach 100 000. Every finding becomes a regression test and restarts the gate |
 | `CI` workflow green on GitHub | passed (run 44032698976, 35 min) |
 | `Wheels` workflow: manylinux and musllinux (x86_64, aarch64), macOS (x86_64, arm64), Windows; the wheels pass the upstream suite | passed (run 44037196201): nine wheels per platform; the upstream suite passes on every interpreter on Linux x86_64 and aarch64, macOS arm64 and x86_64, and Windows. The musllinux wheels are built but not run |
 
