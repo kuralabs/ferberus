@@ -357,7 +357,14 @@ def value_for(draw, rules, depth=0):
         return None
     schema = rules.get("schema")
     type_ = rules.get("type")
-    types = [type_] if isinstance(type_, str) else list(type_ or [])
+    # (junk schemas have anything as constraint)
+    types = (
+        [type_]
+        if isinstance(type_, str)
+        else list(type_)
+        if isinstance(type_, (list, tuple))
+        else []
+    )
     if isinstance(schema, dict) and schema and "list" not in types:
         if not _looks_like_rules(schema) or "dict" in types:
             return draw(document_for(schema, depth + 1))
